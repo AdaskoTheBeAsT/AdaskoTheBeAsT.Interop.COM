@@ -1,0 +1,1 @@
+"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\TlbImp.exe" .\x86\Debug\NativeCOM.dll /out:.\x86\Debug\Interop.NativeCOM.dll /namespace:NativeCOM /machine:X86

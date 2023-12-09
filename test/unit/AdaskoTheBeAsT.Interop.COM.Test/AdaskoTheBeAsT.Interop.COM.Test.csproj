@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net462;net47;net471;net472;net48;net481;net8.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\AdaskoTheBeAsT.Interop.COM\AdaskoTheBeAsT.Interop.COM.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Interop.NativeCOM">
+      <HintPath>..\..\..\x86\Debug\Interop.NativeCOM.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

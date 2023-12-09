@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sxs32mm version="360" required="360">
+   <project name="NativeCOM" version="1.0.0.0" type="win32" token="" language="" build="auto" processor="x86" target="C:\GitHub\AdaskoTheBeAsT.Interop.COM\manifest" expanded="C:\GitHub\AdaskoTheBeAsT.Interop.COM\manifest" relx=".\manifest">
+      <assembly xirm="0">
+         <file path="C:\GitHub\AdaskoTheBeAsT.Interop.COM\x86\Debug\NativeCOM.dll" relx=".\x86\Debug\NativeCOM.dll" rely="..\x86\Debug\NativeCOM.dll"/>
+      </assembly>
+      <build xirm="0">
+      </build>
+   </project>
+</sxs32mm>

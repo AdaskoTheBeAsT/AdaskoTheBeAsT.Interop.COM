@@ -1,0 +1,39 @@
+// NativeCOM.idl : IDL source for NativeCOM
+//
+
+// This file will be processed by the MIDL tool to
+// produce the type library (NativeCOM.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(33413ce6-2665-4bc0-9d56-11b371df7295),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IStringConcatenator : IDispatch
+{
+    [id(1)] HRESULT ConcatStrings([in] BSTR string1, [in] BSTR string2, [out, retval] BSTR* result);
+};
+
+[
+	uuid(4d04c8d8-6773-491b-be1a-08f83268186d),
+	version(1.0),
+]
+library NativeCOMLib
+{
+	importlib("stdole2.tlb");
+
+	[
+		uuid(03d0aedd-2013-418a-8b92-e57c30f2ab26)
+	]
+	coclass StringConcatenator
+	{
+		[default] interface IStringConcatenator;
+	};
+};
+
+import "shobjidl.idl";
