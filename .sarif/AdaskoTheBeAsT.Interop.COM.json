@@ -1,0 +1,543 @@
+{
+  "$schema": "http://json.schemastore.org/sarif-1.0.0",
+  "version": "1.0.0",
+  "runs": [
+    {
+      "tool": {
+        "name": "Microsoft (R) Visual C# Compiler",
+        "version": "4.11.0.0",
+        "fileVersion": "4.11.0-3.24460.3 (5649376e)",
+        "semanticVersion": "4.11.0",
+        "language": "en-US"
+      },
+      "results": [
+        {
+          "ruleId": "S3925",
+          "level": "error",
+          "message": "Update this implementation of 'ISerializable' to conform to the recommended serialization pattern. Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'.",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
+                "region": {
+                  "startLine": 12,
+                  "startColumn": 14,
+                  "endLine": 12,
+                  "endColumn": 38
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
+                "region": {
+                  "startLine": 12,
+                  "startColumn": 8,
+                  "endLine": 12,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "customProperties": {
+              "0": "Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'."
+            }
+          }
+        },
+        {
+          "ruleId": "SYSLIB1054",
+          "level": "note",
+          "message": "Mark the method 'CreateActCtxW' with 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 30,
+                  "startColumn": 35,
+                  "endLine": 30,
+                  "endColumn": 48
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "CharSet": "None",
+              "ExactSpelling": "False",
+              "MayRequireAdditionalWork": "True"
+            }
+          }
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpSource' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 68,
+                  "startColumn": 21,
+                  "endLine": 68,
+                  "endColumn": 29
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'wProcessorArchitecture' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 21,
+                  "endLine": 80,
+                  "endColumn": 43
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 14,
+                  "endLine": 80,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'dwFlags' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 59,
+                  "startColumn": 21,
+                  "endLine": 59,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 59,
+                  "startColumn": 14,
+                  "endLine": 59,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpAssemblyDirectory' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 101,
+                  "startColumn": 21,
+                  "endLine": 101,
+                  "endColumn": 40
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'cbSize' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 20,
+                  "endLine": 17,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 14,
+                  "endLine": 17,
+                  "endColumn": 19
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'hModule' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 127,
+                  "startColumn": 21,
+                  "endLine": 127,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'wLangId' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 21,
+                  "endLine": 93,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 14,
+                  "endLine": 93,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpApplicationName' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 119,
+                  "startColumn": 21,
+                  "endLine": 119,
+                  "endColumn": 38
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpResourceName' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 111,
+                  "startColumn": 21,
+                  "endLine": 111,
+                  "endColumn": 35
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'wProcessorArchitecture' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 21,
+                  "endLine": 80,
+                  "endColumn": 43
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "wProcessorArchitecture"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'hModule' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 127,
+                  "startColumn": 21,
+                  "endLine": 127,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "hModule"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'wLangId' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 21,
+                  "endLine": 93,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "wLangId"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lpApplicationName' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 119,
+                  "startColumn": 21,
+                  "endLine": 119,
+                  "endColumn": 38
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lpApplicationName"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lpResourceName' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 111,
+                  "startColumn": 21,
+                  "endLine": 111,
+                  "endColumn": 35
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lpResourceName"
+            }
+          }
+        }
+      ],
+      "rules": {
+        "CC0074": {
+          "id": "CC0074",
+          "shortDescription": "Make field readonly",
+          "fullDescription": "A field that is only assigned on the constructor can be made readonly.",
+          "defaultLevel": "note",
+          "helpUri": "https://code-cracker.github.io/diagnostics/CC0074.html",
+          "properties": {
+            "category": "Usage",
+            "isEnabledByDefault": true,
+            "tags": [
+              "CompilationEnd"
+            ]
+          }
+        },
+        "S3925": {
+          "id": "S3925",
+          "shortDescription": "\"ISerializable\" should be implemented correctly",
+          "fullDescription": "The ISerializable interface is the mechanism to control the type serialization process. If not implemented correctly this could result in an invalid serialization and hard-to-detect bugs.",
+          "defaultLevel": "warning",
+          "helpUri": "https://rules.sonarsource.com/csharp/RSPEC-3925",
+          "properties": {
+            "category": "Major Code Smell",
+            "isEnabledByDefault": true,
+            "tags": [
+              "C#",
+              "MainSourceScope",
+              "SonarWay"
+            ]
+          }
+        },
+        "SA1121": {
+          "id": "SA1121",
+          "shortDescription": "Use built-in type alias",
+          "fullDescription": "The code uses one of the basic C# types, but does not use the built-in alias for the type.",
+          "defaultLevel": "warning",
+          "helpUri": "https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1121.md",
+          "properties": {
+            "category": "StyleCop.CSharp.ReadabilityRules",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Unnecessary"
+            ]
+          }
+        },
+        "SA1307": {
+          "id": "SA1307",
+          "shortDescription": "Accessible fields should begin with upper-case letter",
+          "fullDescription": "The name of a public or internal field in C# does not begin with an upper-case letter.",
+          "defaultLevel": "warning",
+          "helpUri": "https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1307.md",
+          "properties": {
+            "category": "StyleCop.CSharp.NamingRules",
+            "isEnabledByDefault": true
+          }
+        },
+        "SYSLIB1054": {
+          "id": "SYSLIB1054",
+          "shortDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "fullDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "defaultLevel": "note",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib1054",
+          "properties": {
+            "category": "Interoperability",
+            "isEnabledByDefault": true
+          }
+        }
+      }
+    }
+  ]
+}
