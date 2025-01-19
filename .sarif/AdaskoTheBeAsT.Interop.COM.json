@@ -5,12 +5,54 @@
     {
       "tool": {
         "name": "Microsoft (R) Visual C# Compiler",
-        "version": "4.11.0.0",
-        "fileVersion": "4.11.0-3.24460.3 (5649376e)",
-        "semanticVersion": "4.11.0",
+        "version": "4.12.0.0",
+        "fileVersion": "4.12.0-3.24572.7 (dfa7fc6b)",
+        "semanticVersion": "4.12.0",
         "language": "en-US"
       },
       "results": [
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'cbSize' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 20,
+                  "endLine": 17,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 14,
+                  "endLine": 17,
+                  "endColumn": 19
+                }
+              }
+            }
+          ]
+        },
         {
           "ruleId": "S3925",
           "level": "error",
@@ -79,6 +121,48 @@
         {
           "ruleId": "SA1307",
           "level": "error",
+          "message": "Field 'dwFlags' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 59,
+                  "startColumn": 21,
+                  "endLine": 59,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 59,
+                  "startColumn": 14,
+                  "endLine": 59,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
           "message": "Field 'lpSource' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
@@ -142,132 +226,6 @@
         {
           "ruleId": "SA1307",
           "level": "error",
-          "message": "Field 'dwFlags' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 59,
-                  "startColumn": 21,
-                  "endLine": 59,
-                  "endColumn": 28
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1121",
-          "level": "error",
-          "message": "Use built-in type alias",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 59,
-                  "startColumn": 14,
-                  "endLine": 59,
-                  "endColumn": 20
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
-          "message": "Field 'lpAssemblyDirectory' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 101,
-                  "startColumn": 21,
-                  "endLine": 101,
-                  "endColumn": 40
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
-          "message": "Field 'cbSize' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 17,
-                  "startColumn": 20,
-                  "endLine": 17,
-                  "endColumn": 26
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1121",
-          "level": "error",
-          "message": "Use built-in type alias",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 17,
-                  "startColumn": 14,
-                  "endLine": 17,
-                  "endColumn": 19
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
-          "message": "Field 'hModule' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 127,
-                  "startColumn": 21,
-                  "endLine": 127,
-                  "endColumn": 28
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
           "message": "Field 'wLangId' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
@@ -310,7 +268,7 @@
         {
           "ruleId": "SA1307",
           "level": "error",
-          "message": "Field 'lpApplicationName' should begin with upper-case letter",
+          "message": "Field 'lpAssemblyDirectory' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
           ],
@@ -319,10 +277,10 @@
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 119,
+                  "startLine": 101,
                   "startColumn": 21,
-                  "endLine": 119,
-                  "endColumn": 38
+                  "endLine": 101,
+                  "endColumn": 40
                 }
               }
             }
@@ -344,6 +302,48 @@
                   "startColumn": 21,
                   "endLine": 111,
                   "endColumn": 35
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpApplicationName' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 119,
+                  "startColumn": 21,
+                  "endLine": 119,
+                  "endColumn": 38
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'hModule' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 127,
+                  "startColumn": 21,
+                  "endLine": 127,
+                  "endColumn": 28
                 }
               }
             }
@@ -376,30 +376,6 @@
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'hModule' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 127,
-                  "startColumn": 21,
-                  "endLine": 127,
-                  "endColumn": 28
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "hModule"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
           "message": "Make 'wLangId' readonly",
           "locations": [
             {
@@ -418,6 +394,30 @@
             "warningLevel": 1,
             "customProperties": {
               "identifier": "wLangId"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lpResourceName' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 111,
+                  "startColumn": 21,
+                  "endLine": 111,
+                  "endColumn": 35
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lpResourceName"
             }
           }
         },
@@ -448,16 +448,16 @@
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'lpResourceName' readonly",
+          "message": "Make 'hModule' readonly",
           "locations": [
             {
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 111,
+                  "startLine": 127,
                   "startColumn": 21,
-                  "endLine": 111,
-                  "endColumn": 35
+                  "endLine": 127,
+                  "endColumn": 28
                 }
               }
             }
@@ -465,7 +465,7 @@
           "properties": {
             "warningLevel": 1,
             "customProperties": {
-              "identifier": "lpResourceName"
+              "identifier": "hModule"
             }
           }
         }
