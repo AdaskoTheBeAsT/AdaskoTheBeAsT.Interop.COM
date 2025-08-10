@@ -5,49 +5,25 @@
     {
       "tool": {
         "name": "Microsoft (R) Visual C# Compiler",
-        "version": "4.12.0.0",
-        "fileVersion": "4.12.0-3.24572.7 (dfa7fc6b)",
-        "semanticVersion": "4.12.0",
+        "version": "4.14.0.0",
+        "fileVersion": "4.14.0-3.25359.3 (6dbcfd2f)",
+        "semanticVersion": "4.14.0",
         "language": "en-US"
       },
       "results": [
         {
-          "ruleId": "SA1307",
+          "ruleId": "SYSLIB1051",
           "level": "error",
-          "message": "Field 'cbSize' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
+          "message": "The type 'AdaskoTheBeAsT.Interop.COM.ActCtx' is not supported by source-generated P/Invokes. The generated source will not handle marshalling of parameter 'pActCtx'.",
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 17,
-                  "startColumn": 20,
-                  "endLine": 17,
-                  "endColumn": 26
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1121",
-          "level": "error",
-          "message": "Use built-in type alias",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 17,
-                  "startColumn": 14,
-                  "endLine": 17,
-                  "endColumn": 19
+                  "startLine": 91,
+                  "startColumn": 60,
+                  "endLine": 91,
+                  "endColumn": 67
                 }
               }
             }
@@ -93,30 +69,67 @@
           }
         },
         {
-          "ruleId": "SYSLIB1054",
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'cbSize' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 20,
+                  "endLine": 17,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CC0037",
           "level": "note",
-          "message": "Mark the method 'CreateActCtxW' with 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "message": "Commented code should be removed.",
           "locations": [
             {
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 30,
-                  "startColumn": 35,
-                  "endLine": 30,
-                  "endColumn": 48
+                  "startLine": 88,
+                  "startColumn": 5,
+                  "endLine": 88,
+                  "endColumn": 87
                 }
               }
             }
           ],
           "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "CharSet": "None",
-              "ExactSpelling": "False",
-              "MayRequireAdditionalWork": "True"
-            }
+            "warningLevel": 1
           }
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 14,
+                  "endLine": 17,
+                  "endColumn": 19
+                }
+              }
+            }
+          ]
         },
         {
           "ruleId": "SA1307",
@@ -154,6 +167,90 @@
                   "startLine": 59,
                   "startColumn": 14,
                   "endLine": 59,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "S101",
+          "level": "error",
+          "message": "Rename struct 'MSG' to match pascal case naming rules, consider using 'Msg'.",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 127,
+                  "startColumn": 21,
+                  "endLine": 127,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "S101",
+          "level": "error",
+          "message": "Rename struct 'POINT' to match pascal case naming rules, consider using 'Point'.",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 139,
+                  "startColumn": 21,
+                  "endLine": 139,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'wLangId' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 21,
+                  "endLine": 93,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SA1121",
+          "level": "error",
+          "message": "Use built-in type alias",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 14,
+                  "endLine": 93,
                   "endColumn": 20
                 }
               }
@@ -217,48 +314,6 @@
                   "startLine": 80,
                   "startColumn": 14,
                   "endLine": 80,
-                  "endColumn": 20
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
-          "message": "Field 'wLangId' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 93,
-                  "startColumn": 21,
-                  "endLine": 93,
-                  "endColumn": 28
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1121",
-          "level": "error",
-          "message": "Use built-in type alias",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 93,
-                  "startColumn": 14,
-                  "endLine": 93,
                   "endColumn": 20
                 }
               }
@@ -350,6 +405,243 @@
           ]
         },
         {
+          "ruleId": "CA2263",
+          "level": "note",
+          "message": "Prefer the generic overload 'System.Runtime.InteropServices.Marshal.SizeOf<T>()' instead of 'System.Runtime.InteropServices.Marshal.SizeOf(System.Type)'",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 119,
+                  "startColumn": 21,
+                  "endLine": 119,
+                  "endColumn": 51
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'y' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 142,
+                  "startColumn": 20,
+                  "endLine": 142,
+                  "endColumn": 21
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "y"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'hwnd' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 129,
+                  "startColumn": 23,
+                  "endLine": 129,
+                  "endColumn": 27
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "hwnd"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'wLangId' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 21,
+                  "endLine": 93,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "wLangId"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'message' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 130,
+                  "startColumn": 21,
+                  "endLine": 130,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "message"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'x' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 141,
+                  "startColumn": 20,
+                  "endLine": 141,
+                  "endColumn": 21
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "x"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'wParam' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 131,
+                  "startColumn": 24,
+                  "endLine": 131,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "wParam"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lParam' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 132,
+                  "startColumn": 23,
+                  "endLine": 132,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lParam"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'time' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 133,
+                  "startColumn": 21,
+                  "endLine": 133,
+                  "endColumn": 25
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "time"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'pt' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 134,
+                  "startColumn": 22,
+                  "endLine": 134,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "pt"
+            }
+          }
+        },
+        {
           "ruleId": "CC0074",
           "level": "note",
           "message": "Make 'wProcessorArchitecture' readonly",
@@ -376,16 +668,16 @@
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'wLangId' readonly",
+          "message": "Make 'lPrivate' readonly",
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 93,
+                  "startLine": 135,
                   "startColumn": 21,
-                  "endLine": 93,
-                  "endColumn": 28
+                  "endLine": 135,
+                  "endColumn": 29
                 }
               }
             }
@@ -393,7 +685,7 @@
           "properties": {
             "warningLevel": 1,
             "customProperties": {
-              "identifier": "wLangId"
+              "identifier": "lPrivate"
             }
           }
         },
@@ -471,6 +763,31 @@
         }
       ],
       "rules": {
+        "CA2263": {
+          "id": "CA2263",
+          "shortDescription": "Prefer generic overload when type is known",
+          "fullDescription": "Using a generic overload is preferable to the 'System.Type' overload when the type is known, promoting cleaner and more type-safe code with improved compile-time checks.",
+          "defaultLevel": "note",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2263",
+          "properties": {
+            "category": "Usage",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Telemetry",
+              "EnabledRuleInAggressiveMode"
+            ]
+          }
+        },
+        "CC0037": {
+          "id": "CC0037",
+          "shortDescription": "Remove commented code.",
+          "defaultLevel": "note",
+          "helpUri": "https://code-cracker.github.io/diagnostics/CC0037.html",
+          "properties": {
+            "category": "Style",
+            "isEnabledByDefault": true
+          }
+        },
         "CC0074": {
           "id": "CC0074",
           "shortDescription": "Make field readonly",
@@ -482,6 +799,23 @@
             "isEnabledByDefault": true,
             "tags": [
               "CompilationEnd"
+            ]
+          }
+        },
+        "S101": {
+          "id": "S101",
+          "shortDescription": "Types should be named in PascalCase",
+          "fullDescription": "Shared naming conventions allow teams to collaborate efficiently.",
+          "defaultLevel": "warning",
+          "helpUri": "https://rules.sonarsource.com/csharp/RSPEC-101",
+          "properties": {
+            "category": "Minor Code Smell",
+            "isEnabledByDefault": true,
+            "tags": [
+              "C#",
+              "MainSourceScope",
+              "TestSourceScope",
+              "SonarWay"
             ]
           }
         },
@@ -526,14 +860,14 @@
             "isEnabledByDefault": true
           }
         },
-        "SYSLIB1054": {
-          "id": "SYSLIB1054",
-          "shortDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
-          "fullDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
-          "defaultLevel": "note",
-          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib1054",
+        "SYSLIB1051": {
+          "id": "SYSLIB1051",
+          "shortDescription": "Specified type is not supported by source-generated P/Invokes",
+          "fullDescription": "For types that are not supported by source-generated P/Invokes, the resulting P/Invoke will rely on the underlying runtime to marshal the specified type.",
+          "defaultLevel": "error",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib1051",
           "properties": {
-            "category": "Interoperability",
+            "category": "LibraryImportGenerator",
             "isEnabledByDefault": true
           }
         }

@@ -2,7 +2,7 @@ using System;
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
-public class Result
+public sealed class Result
 {
     public Exception? Exception { get; set; }
 

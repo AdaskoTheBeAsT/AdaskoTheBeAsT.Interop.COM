@@ -15,8 +15,9 @@ public static class Executor
         string manifestPath,
         Action action)
     {
-        var ac = PrepareContext(new ComPathDescriptor(comAssemblyPath, manifestPath));
-        var hActCtx = CreateContext(ac);
+        var descriptor = new ComPathDescriptor(comAssemblyPath, manifestPath);
+        var ctx = PrepareContext(descriptor);
+        var hActCtx = CreateContext(ctx);
 
         var result = new Result { Success = false };
         try
@@ -26,11 +27,14 @@ public static class Executor
             try
             {
                 action?.Invoke();
+
+                // Pump COM messages in STA apartment
+                NativeMethods.PumpPendingMessages();
+
                 result.Success = true;
             }
             catch (Exception ex)
             {
-                result.Success = false;
                 result.Exception = ex;
             }
             finally
@@ -40,7 +44,6 @@ public static class Executor
         }
         catch (Exception ex)
         {
-            result.Success = false;
             result.Exception = ex;
         }
         finally
@@ -77,11 +80,14 @@ public static class Executor
             try
             {
                 action?.Invoke();
+
+                // Pump COM messages after callback
+                NativeMethods.PumpPendingMessages();
+
                 result.Success = true;
             }
             catch (Exception ex)
             {
-                result.Success = false;
                 result.Exception = ex;
             }
             finally
@@ -94,7 +100,6 @@ public static class Executor
         }
         catch (Exception ex)
         {
-            result.Success = false;
             result.Exception = ex;
         }
         finally
@@ -112,7 +117,8 @@ public static class Executor
     {
         var ac = default(ActCtx);
         ac.cbSize = Marshal.SizeOf(typeof(ActCtx));
-        if (ac.cbSize != 0x20)
+        var expected = IntPtr.Size == 4 ? 0x20 : 0x38;
+        if (ac.cbSize != expected)
         {
             throw new ActCtxWrongSizeException("ActCtx.cbSize is wrong");
         }
@@ -125,7 +131,7 @@ public static class Executor
 
     private static IntPtr CreateContext(ActCtx actCtx)
     {
-        var hActCtx = NativeMethods.CreateActCtxW(ref actCtx);
+        var hActCtx = NativeMethods.CreateActCtx(ref actCtx);
         if (hActCtx == (IntPtr)(-1))
         {
             throw new Win32Exception();

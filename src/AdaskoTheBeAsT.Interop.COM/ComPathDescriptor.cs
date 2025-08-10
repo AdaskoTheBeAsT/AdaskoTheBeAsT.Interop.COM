@@ -1,6 +1,6 @@
 namespace AdaskoTheBeAsT.Interop.COM;
 
-public class ComPathDescriptor
+public sealed class ComPathDescriptor
 {
     public ComPathDescriptor(
         string comAssemblyPath,
