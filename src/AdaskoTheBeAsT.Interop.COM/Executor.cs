@@ -10,11 +10,41 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// </summary>
 public static class Executor
 {
+    /// <summary>
+    /// Executes an action within a single COM activation context.
+    /// Creates activation context from manifest, executes the action in STA, then cleans up.
+    /// </summary>
+    /// <param name="comAssemblyPath">Full path to the COM DLL assembly.</param>
+    /// <param name="manifestPath">Full path to the manifest file describing the COM component.</param>
+    /// <param name="action">Action to execute within the activation context.</param>
+    /// <returns>Result indicating success or failure with optional exception details.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when comAssemblyPath or manifestPath is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when comAssemblyPath or manifestPath is empty or whitespace.</exception>
     public static Result Execute(
         string comAssemblyPath,
         string manifestPath,
         Action action)
     {
+        if (comAssemblyPath is null)
+        {
+            throw new ArgumentNullException(nameof(comAssemblyPath));
+        }
+
+        if (manifestPath is null)
+        {
+            throw new ArgumentNullException(nameof(manifestPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(comAssemblyPath))
+        {
+            throw new ArgumentException("COM assembly path cannot be empty or whitespace.", nameof(comAssemblyPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new ArgumentException("Manifest path cannot be empty or whitespace.", nameof(manifestPath));
+        }
+
         var descriptor = new ComPathDescriptor(comAssemblyPath, manifestPath);
         var ctx = PrepareContext(descriptor);
         var hActCtx = CreateContext(ctx);
@@ -54,18 +84,22 @@ public static class Executor
         return result;
     }
 
+    /// <summary>
+    /// Executes an action within multiple COM activation contexts.
+    /// Creates activation contexts from all descriptors, executes the action in STA,
+    /// then cleans up all contexts in reverse order (LIFO).
+    /// </summary>
+    /// <param name="comPathDescriptors">Collection of COM path descriptors containing DLL and manifest paths.</param>
+    /// <param name="action">Action to execute within all activation contexts.</param>
+    /// <returns>Result indicating success or failure with optional exception details.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty.</exception>
     public static Result Execute(
         ICollection<ComPathDescriptor> comPathDescriptors,
         Action action)
     {
-        var hActCtxs = new List<IntPtr>(comPathDescriptors.Count);
-
-        foreach (var comPathDescriptor in comPathDescriptors)
-        {
-            var ac = PrepareContext(comPathDescriptor);
-            var hActCtx = CreateContext(ac);
-            hActCtxs.Add(hActCtx);
-        }
+        ValidateComPathDescriptors(comPathDescriptors);
+        var hActCtxs = CreateActivationContexts(comPathDescriptors);
 
         var result = new Result { Success = false };
         try
@@ -111,6 +145,33 @@ public static class Executor
         }
 
         return result;
+    }
+
+    private static void ValidateComPathDescriptors(ICollection<ComPathDescriptor> comPathDescriptors)
+    {
+        if (comPathDescriptors is null)
+        {
+            throw new ArgumentNullException(nameof(comPathDescriptors));
+        }
+
+        if (comPathDescriptors.Count == 0)
+        {
+            throw new ArgumentException("COM path descriptors collection cannot be empty.", nameof(comPathDescriptors));
+        }
+    }
+
+    private static List<IntPtr> CreateActivationContexts(ICollection<ComPathDescriptor> comPathDescriptors)
+    {
+        var hActCtxs = new List<IntPtr>(comPathDescriptors.Count);
+
+        foreach (var comPathDescriptor in comPathDescriptors)
+        {
+            var ac = PrepareContext(comPathDescriptor);
+            var hActCtx = CreateContext(ac);
+            hActCtxs.Add(hActCtx);
+        }
+
+        return hActCtxs;
     }
 
     private static ActCtx PrepareContext(ComPathDescriptor comPathDescriptor)

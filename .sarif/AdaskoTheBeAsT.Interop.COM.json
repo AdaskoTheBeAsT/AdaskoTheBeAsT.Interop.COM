@@ -5,69 +5,12 @@
     {
       "tool": {
         "name": "Microsoft (R) Visual C# Compiler",
-        "version": "4.14.0.0",
-        "fileVersion": "4.14.0-3.25359.3 (6dbcfd2f)",
-        "semanticVersion": "4.14.0",
+        "version": "5.0.0.0",
+        "fileVersion": "5.0.0-2.25523.111 (b0f34d51)",
+        "semanticVersion": "5.0.0",
         "language": "en-US"
       },
       "results": [
-        {
-          "ruleId": "SYSLIB1051",
-          "level": "error",
-          "message": "The type 'AdaskoTheBeAsT.Interop.COM.ActCtx' is not supported by source-generated P/Invokes. The generated source will not handle marshalling of parameter 'pActCtx'.",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 91,
-                  "startColumn": 60,
-                  "endLine": 91,
-                  "endColumn": 67
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "S3925",
-          "level": "error",
-          "message": "Update this implementation of 'ISerializable' to conform to the recommended serialization pattern. Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'.",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
-                "region": {
-                  "startLine": 12,
-                  "startColumn": 14,
-                  "endLine": 12,
-                  "endColumn": 38
-                }
-              }
-            }
-          ],
-          "relatedLocations": [
-            {
-              "physicalLocation": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
-                "region": {
-                  "startLine": 12,
-                  "startColumn": 8,
-                  "endLine": 12,
-                  "endColumn": 13
-                }
-              }
-            }
-          ],
-          "properties": {
-            "customProperties": {
-              "0": "Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'."
-            }
-          }
-        },
         {
           "ruleId": "SA1307",
           "level": "error",
@@ -88,27 +31,6 @@
               }
             }
           ]
-        },
-        {
-          "ruleId": "CC0037",
-          "level": "note",
-          "message": "Commented code should be removed.",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 88,
-                  "startColumn": 5,
-                  "endLine": 88,
-                  "endColumn": 87
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1
-          }
         },
         {
           "ruleId": "SA1121",
@@ -174,42 +96,42 @@
           ]
         },
         {
-          "ruleId": "S101",
+          "ruleId": "SA1307",
           "level": "error",
-          "message": "Rename struct 'MSG' to match pascal case naming rules, consider using 'Msg'.",
+          "message": "Field 'lpSource' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
           ],
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 127,
+                  "startLine": 68,
                   "startColumn": 21,
-                  "endLine": 127,
-                  "endColumn": 24
+                  "endLine": 68,
+                  "endColumn": 29
                 }
               }
             }
           ]
         },
         {
-          "ruleId": "S101",
+          "ruleId": "SA1307",
           "level": "error",
-          "message": "Rename struct 'POINT' to match pascal case naming rules, consider using 'Point'.",
+          "message": "Field 'lpAssemblyDirectory' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
           ],
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 139,
+                  "startLine": 101,
                   "startColumn": 21,
-                  "endLine": 139,
-                  "endColumn": 26
+                  "endLine": 101,
+                  "endColumn": 40
                 }
               }
             }
@@ -237,6 +159,27 @@
           ]
         },
         {
+          "ruleId": "SA1307",
+          "level": "error",
+          "message": "Field 'lpResourceName' should begin with upper-case letter",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "region": {
+                  "startLine": 111,
+                  "startColumn": 21,
+                  "endLine": 111,
+                  "endColumn": 35
+                }
+              }
+            }
+          ]
+        },
+        {
           "ruleId": "SA1121",
           "level": "error",
           "message": "Use built-in type alias",
@@ -252,27 +195,6 @@
                   "startColumn": 14,
                   "endLine": 93,
                   "endColumn": 20
-                }
-              }
-            }
-          ]
-        },
-        {
-          "ruleId": "SA1307",
-          "level": "error",
-          "message": "Field 'lpSource' should begin with upper-case letter",
-          "suppressionStates": [
-            "suppressedInSource"
-          ],
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 68,
-                  "startColumn": 21,
-                  "endLine": 68,
-                  "endColumn": 29
                 }
               }
             }
@@ -323,7 +245,7 @@
         {
           "ruleId": "SA1307",
           "level": "error",
-          "message": "Field 'lpAssemblyDirectory' should begin with upper-case letter",
+          "message": "Field 'hModule' should begin with upper-case letter",
           "suppressionStates": [
             "suppressedInSource"
           ],
@@ -332,35 +254,53 @@
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 101,
+                  "startLine": 127,
                   "startColumn": 21,
-                  "endLine": 101,
-                  "endColumn": 40
+                  "endLine": 127,
+                  "endColumn": 28
                 }
               }
             }
           ]
         },
         {
-          "ruleId": "SA1307",
+          "ruleId": "S3925",
           "level": "error",
-          "message": "Field 'lpResourceName' should begin with upper-case letter",
+          "message": "Update this implementation of 'ISerializable' to conform to the recommended serialization pattern. Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'.",
           "suppressionStates": [
             "suppressedInSource"
           ],
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
                 "region": {
-                  "startLine": 111,
-                  "startColumn": 21,
-                  "endLine": 111,
-                  "endColumn": 35
+                  "startLine": 12,
+                  "startColumn": 14,
+                  "endLine": 12,
+                  "endColumn": 38
                 }
               }
             }
-          ]
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtxWrongSizeException.cs",
+                "region": {
+                  "startLine": 12,
+                  "startColumn": 8,
+                  "endLine": 12,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "customProperties": {
+              "0": "Add a 'protected' constructor 'ActCtxWrongSizeException(SerializationInfo, StreamingContext)'."
+            }
+          }
         },
         {
           "ruleId": "SA1307",
@@ -384,25 +324,80 @@
           ]
         },
         {
-          "ruleId": "SA1307",
+          "ruleId": "S101",
           "level": "error",
-          "message": "Field 'hModule' should begin with upper-case letter",
+          "message": "Rename struct 'POINT' to match pascal case naming rules, consider using 'Point'.",
           "suppressionStates": [
             "suppressedInSource"
           ],
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 127,
+                  "startLine": 137,
                   "startColumn": 21,
-                  "endLine": 127,
-                  "endColumn": 28
+                  "endLine": 137,
+                  "endColumn": 26
                 }
               }
             }
           ]
+        },
+        {
+          "ruleId": "S101",
+          "level": "error",
+          "message": "Rename struct 'MSG' to match pascal case naming rules, consider using 'Msg'.",
+          "suppressionStates": [
+            "suppressedInSource"
+          ],
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 125,
+                  "startColumn": 21,
+                  "endLine": 125,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CA1510",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 152,
+                  "startColumn": 9,
+                  "endLine": 155,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 152,
+                  "startColumn": 13,
+                  "endLine": 152,
+                  "endColumn": 31
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
         },
         {
           "ruleId": "CA2263",
@@ -413,10 +408,369 @@
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
                 "region": {
-                  "startLine": 119,
+                  "startLine": 180,
                   "startColumn": 21,
-                  "endLine": 119,
+                  "endLine": 180,
                   "endColumn": 51
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "SYSLIB1054",
+          "level": "note",
+          "message": "Mark the method 'CreateActCtx' with 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 89,
+                  "startColumn": 35,
+                  "endLine": 89,
+                  "endColumn": 47
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "CharSet": "None",
+              "ExactSpelling": "False",
+              "MayRequireAdditionalWork": "True"
+            }
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "ruleKey": "CA1510-001",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 152,
+                  "startColumn": 9,
+                  "endLine": 155,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 152,
+                  "startColumn": 13,
+                  "endLine": 152,
+                  "endColumn": 31
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA2263",
+          "ruleKey": "CA2263-001",
+          "level": "note",
+          "message": "Prefer the generic overload 'System.Runtime.InteropServices.Marshal.SizeOf<T>()' instead of 'System.Runtime.InteropServices.Marshal.SizeOf(System.Type)'",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 180,
+                  "startColumn": 21,
+                  "endLine": 180,
+                  "endColumn": 51
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 9,
+                  "endLine": 25,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 13,
+                  "endLine": 22,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 27,
+                  "startColumn": 9,
+                  "endLine": 30,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 27,
+                  "startColumn": 13,
+                  "endLine": 27,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "ruleKey": "CA1510-001",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 9,
+                  "endLine": 25,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 13,
+                  "endLine": 22,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "ruleKey": "CA1510-001",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 27,
+                  "startColumn": 9,
+                  "endLine": 30,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ComPathDescriptor.cs",
+                "region": {
+                  "startLine": 27,
+                  "startColumn": 13,
+                  "endLine": 27,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 28,
+                  "startColumn": 9,
+                  "endLine": 31,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 28,
+                  "startColumn": 13,
+                  "endLine": 28,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 33,
+                  "startColumn": 9,
+                  "endLine": 36,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 33,
+                  "startColumn": 13,
+                  "endLine": 33,
+                  "endColumn": 25
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "ruleKey": "CA1510-001",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 28,
+                  "startColumn": 9,
+                  "endLine": 31,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 28,
+                  "startColumn": 13,
+                  "endLine": 28,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1
+          }
+        },
+        {
+          "ruleId": "CA1510",
+          "ruleKey": "CA1510-001",
+          "level": "note",
+          "message": "Use 'ArgumentNullException.ThrowIfNull' instead of explicitly throwing a new exception instance",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 33,
+                  "startColumn": 9,
+                  "endLine": 36,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "physicalLocation": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/Executor.cs",
+                "region": {
+                  "startLine": 33,
+                  "startColumn": 13,
+                  "endLine": 33,
+                  "endColumn": 25
                 }
               }
             }
@@ -428,39 +782,15 @@
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'y' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 142,
-                  "startColumn": 20,
-                  "endLine": 142,
-                  "endColumn": 21
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "y"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
           "message": "Make 'hwnd' readonly",
           "locations": [
             {
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 129,
+                  "startLine": 127,
                   "startColumn": 23,
-                  "endLine": 129,
+                  "endLine": 127,
                   "endColumn": 27
                 }
               }
@@ -470,6 +800,150 @@
             "warningLevel": 1,
             "customProperties": {
               "identifier": "hwnd"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'pt' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 132,
+                  "startColumn": 22,
+                  "endLine": 132,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "pt"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'wParam' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 129,
+                  "startColumn": 24,
+                  "endLine": 129,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "wParam"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lPrivate' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 133,
+                  "startColumn": 21,
+                  "endLine": 133,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lPrivate"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'message' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 128,
+                  "startColumn": 21,
+                  "endLine": 128,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "message"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'lParam' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 130,
+                  "startColumn": 23,
+                  "endLine": 130,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "lParam"
+            }
+          }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'time' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 131,
+                  "startColumn": 21,
+                  "endLine": 131,
+                  "endColumn": 25
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "time"
             }
           }
         },
@@ -500,16 +974,16 @@
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'message' readonly",
+          "message": "Make 'lpResourceName' readonly",
           "locations": [
             {
               "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
                 "region": {
-                  "startLine": 130,
+                  "startLine": 111,
                   "startColumn": 21,
-                  "endLine": 130,
-                  "endColumn": 28
+                  "endLine": 111,
+                  "endColumn": 35
                 }
               }
             }
@@ -517,22 +991,22 @@
           "properties": {
             "warningLevel": 1,
             "customProperties": {
-              "identifier": "message"
+              "identifier": "lpResourceName"
             }
           }
         },
         {
           "ruleId": "CC0074",
           "level": "note",
-          "message": "Make 'x' readonly",
+          "message": "Make 'y' readonly",
           "locations": [
             {
               "resultFile": {
                 "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
                 "region": {
-                  "startLine": 141,
+                  "startLine": 140,
                   "startColumn": 20,
-                  "endLine": 141,
+                  "endLine": 140,
                   "endColumn": 21
                 }
               }
@@ -541,103 +1015,7 @@
           "properties": {
             "warningLevel": 1,
             "customProperties": {
-              "identifier": "x"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'wParam' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 131,
-                  "startColumn": 24,
-                  "endLine": 131,
-                  "endColumn": 30
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "wParam"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'lParam' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 132,
-                  "startColumn": 23,
-                  "endLine": 132,
-                  "endColumn": 29
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "lParam"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'time' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 133,
-                  "startColumn": 21,
-                  "endLine": 133,
-                  "endColumn": 25
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "time"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'pt' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 134,
-                  "startColumn": 22,
-                  "endLine": 134,
-                  "endColumn": 24
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "pt"
+              "identifier": "y"
             }
           }
         },
@@ -662,54 +1040,6 @@
             "warningLevel": 1,
             "customProperties": {
               "identifier": "wProcessorArchitecture"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'lPrivate' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
-                "region": {
-                  "startLine": 135,
-                  "startColumn": 21,
-                  "endLine": 135,
-                  "endColumn": 29
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "lPrivate"
-            }
-          }
-        },
-        {
-          "ruleId": "CC0074",
-          "level": "note",
-          "message": "Make 'lpResourceName' readonly",
-          "locations": [
-            {
-              "resultFile": {
-                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/ActCtx.cs",
-                "region": {
-                  "startLine": 111,
-                  "startColumn": 21,
-                  "endLine": 111,
-                  "endColumn": 35
-                }
-              }
-            }
-          ],
-          "properties": {
-            "warningLevel": 1,
-            "customProperties": {
-              "identifier": "lpResourceName"
             }
           }
         },
@@ -760,9 +1090,63 @@
               "identifier": "hModule"
             }
           }
+        },
+        {
+          "ruleId": "CC0074",
+          "level": "note",
+          "message": "Make 'x' readonly",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/GitHub/AdaskoTheBeAsT.Interop.COM/src/AdaskoTheBeAsT.Interop.COM/NativeMethods.cs",
+                "region": {
+                  "startLine": 139,
+                  "startColumn": 20,
+                  "endLine": 139,
+                  "endColumn": 21
+                }
+              }
+            }
+          ],
+          "properties": {
+            "warningLevel": 1,
+            "customProperties": {
+              "identifier": "x"
+            }
+          }
         }
       ],
       "rules": {
+        "CA1510": {
+          "id": "CA1510",
+          "shortDescription": "Use ArgumentNullException throw helper",
+          "fullDescription": "Throw helpers are simpler and more efficient than an if block constructing a new exception instance.",
+          "defaultLevel": "note",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1510",
+          "properties": {
+            "category": "Maintainability",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Telemetry",
+              "EnabledRuleInAggressiveMode"
+            ]
+          }
+        },
+        "CA1510-001": {
+          "id": "CA1510",
+          "shortDescription": "Use ArgumentNullException throw helper",
+          "fullDescription": "Throw helpers are simpler and more efficient than an if block constructing a new exception instance.",
+          "defaultLevel": "note",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1510",
+          "properties": {
+            "category": "Maintainability",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Telemetry",
+              "EnabledRuleInAggressiveMode"
+            ]
+          }
+        },
         "CA2263": {
           "id": "CA2263",
           "shortDescription": "Prefer generic overload when type is known",
@@ -778,14 +1162,19 @@
             ]
           }
         },
-        "CC0037": {
-          "id": "CC0037",
-          "shortDescription": "Remove commented code.",
+        "CA2263-001": {
+          "id": "CA2263",
+          "shortDescription": "Prefer generic overload when type is known",
+          "fullDescription": "Using a generic overload is preferable to the 'System.Type' overload when the type is known, promoting cleaner and more type-safe code with improved compile-time checks.",
           "defaultLevel": "note",
-          "helpUri": "https://code-cracker.github.io/diagnostics/CC0037.html",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2263",
           "properties": {
-            "category": "Style",
-            "isEnabledByDefault": true
+            "category": "Usage",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Telemetry",
+              "EnabledRuleInAggressiveMode"
+            ]
           }
         },
         "CC0074": {
@@ -860,14 +1249,14 @@
             "isEnabledByDefault": true
           }
         },
-        "SYSLIB1051": {
-          "id": "SYSLIB1051",
-          "shortDescription": "Specified type is not supported by source-generated P/Invokes",
-          "fullDescription": "For types that are not supported by source-generated P/Invokes, the resulting P/Invoke will rely on the underlying runtime to marshal the specified type.",
-          "defaultLevel": "error",
-          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib1051",
+        "SYSLIB1054": {
+          "id": "SYSLIB1054",
+          "shortDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "fullDescription": "Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time",
+          "defaultLevel": "note",
+          "helpUri": "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib1054",
           "properties": {
-            "category": "LibraryImportGenerator",
+            "category": "Interoperability",
             "isEnabledByDefault": true
           }
         }
