@@ -128,12 +128,12 @@ var result = Executor.Execute(descriptors, () =>
 
 ## Creating COM Manifests
 
-### Using ManifestMaker (Recommended)
+### Using ManifestMaker (Commercial Tool)
 
-The easiest way to generate manifests for your COM DLLs is using **[ManifestMaker](https://www.manifestmaker.com/)**, a free online tool:
+You can generate manifests for your COM DLLs using **[ManifestMaker](https://www.manifestmaker.com/)**, a commercial desktop tool:
 
-1. **Navigate** to [https://www.manifestmaker.com/](https://www.manifestmaker.com/)
-2. **Upload** your COM DLL file or enter COM details manually
+1. **Download and install** ManifestMaker from [https://www.manifestmaker.com/](https://www.manifestmaker.com/)
+2. **Load** your COM DLL file or enter COM details manually
 3. **Configure** settings:
    - Assembly name and version
    - COM class details (CLSID, threading model, ProgID)
@@ -145,7 +145,8 @@ The easiest way to generate manifests for your COM DLLs is using **[ManifestMake
 - ✨ Automatically extracts COM metadata from DLL
 - 🎯 Generates proper manifest structure
 - 🔧 Supports type libraries and dependencies
-- 💾 Free and easy to use
+
+**Note:** ManifestMaker is a paid service. Check their website for current pricing and licensing terms.
 
 ### Manual Manifest Creation
 
