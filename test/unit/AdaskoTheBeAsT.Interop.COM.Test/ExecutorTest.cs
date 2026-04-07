@@ -1,4 +1,3 @@
-using System.Reflection;
 using AwesomeAssertions;
 using Xunit;
 
@@ -10,12 +9,7 @@ public class ExecutorTest
     public void AddStringsTest()
     {
         // Arrange
-        var currentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? ".";
-        var comAssemblyPath = Path.Combine(currentPath, @"..\..\..\..\..\..\x86\Debug\NativeCOM.dll");
-        var manifestPath = Path.Combine(currentPath, @"..\..\..\..\..\..\Manifest\NativeCOM\NativeCOM.manifest");
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
+        var (comAssemblyPath, manifestPath) = GetPaths();
         var str1 = "Hello";
         var str2 = "World!";
         string? output = null;
@@ -31,5 +25,149 @@ public class ExecutorTest
         // Assert
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
+        result.Exception.Should().BeNull();
+        output.Should().Be("HelloWorld!");
+    }
+
+    [Fact]
+    public void CreateAndFreeTest()
+    {
+        // Arrange
+        var (comAssemblyPath, manifestPath) = GetPaths();
+
+        // Act
+        var creation = Executor.Create(
+            comAssemblyPath,
+            manifestPath,
+            () => new NativeCOM.StringConcatenatorClass());
+
+        // Assert
+        creation.Should().NotBeNull();
+        creation.Success.Should().BeTrue();
+        creation.Exception.Should().BeNull();
+        creation.Value.Should().NotBeNull();
+        creation.Value!.ComObject.Should().NotBeNull();
+        creation.Value.ComObject!.ConcatStrings("Hello", "World!").Should().Be("HelloWorld!");
+
+        var release = Executor.Free(creation.Value);
+
+        release.Should().NotBeNull();
+        release.Success.Should().BeTrue();
+        release.Exception.Should().BeNull();
+        creation.Value.IsReleased.Should().BeTrue();
+        creation.Value.ComObject.Should().BeNull();
+        creation.Value.ActivationContextHandles.Should().BeEmpty();
+        creation.Value.ActivationCookies.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CreateWithCollectionOverloadShouldKeepActivationStateUntilFree()
+    {
+        // Arrange
+        var (comAssemblyPath, manifestPath) = GetPaths();
+        var descriptors = new[]
+        {
+            new ComPathDescriptor(comAssemblyPath, manifestPath),
+        };
+
+        // Act
+        var creation = Executor.Create(
+            descriptors,
+            () => new NativeCOM.StringConcatenatorClass());
+
+        // Assert
+        creation.Success.Should().BeTrue();
+        creation.Exception.Should().BeNull();
+        creation.Value.Should().NotBeNull();
+        creation.Value!.IsReleased.Should().BeFalse();
+        creation.Value.ActivationContextHandles.Should().HaveCount(1);
+        creation.Value.ActivationCookies.Should().HaveCount(1);
+        creation.Value.ComObject.Should().NotBeNull();
+        creation.Value.ComObject!.ConcatStrings("Foo", "Bar").Should().Be("FooBar");
+
+        var release = Executor.Free(creation.Value);
+
+        release.Success.Should().BeTrue();
+        creation.Value.IsReleased.Should().BeTrue();
+        creation.Value.ActivationContextHandles.Should().BeEmpty();
+        creation.Value.ActivationCookies.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CreateShouldFailWhenFactoryReturnsNull()
+    {
+        // Arrange
+        var (comAssemblyPath, manifestPath) = GetPaths();
+
+        // Act
+        var creation = Executor.Create<NativeCOM.StringConcatenatorClass>(
+            comAssemblyPath,
+            manifestPath,
+            () => null!);
+
+        // Assert
+        creation.Success.Should().BeFalse();
+        creation.Value.Should().BeNull();
+        creation.Exception.Should().BeOfType<InvalidOperationException>();
+        creation.Exception!.Message.Should().Be("The COM factory returned null.");
+    }
+
+    [Fact]
+    public void FreeShouldBeIdempotent()
+    {
+        // Arrange
+        var (comAssemblyPath, manifestPath) = GetPaths();
+        var creation = Executor.Create(
+            comAssemblyPath,
+            manifestPath,
+            () => new NativeCOM.StringConcatenatorClass());
+
+        // Act
+        var firstRelease = Executor.Free(creation.Value!);
+        var secondRelease = Executor.Free(creation.Value!);
+
+        // Assert
+        firstRelease.Success.Should().BeTrue();
+        firstRelease.Exception.Should().BeNull();
+        secondRelease.Success.Should().BeTrue();
+        secondRelease.Exception.Should().BeNull();
+        creation.Value!.IsReleased.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateShouldThrowWhenFactoryIsNull()
+    {
+        // Arrange
+        var (comAssemblyPath, manifestPath) = GetPaths();
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => Executor.Create<NativeCOM.StringConcatenatorClass>(comAssemblyPath, manifestPath, null!));
+
+        // Assert
+        exception.ParamName.Should().Be("factory");
+    }
+
+    [Fact]
+    public void FreeShouldThrowWhenHandleIsNull()
+    {
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => Executor.Free<NativeCOM.StringConcatenatorClass>(null!));
+
+        // Assert
+        exception.ParamName.Should().Be("comObjectHandle");
+    }
+
+    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
+    {
+        var currentPath = AppContext.BaseDirectory;
+        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
+        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
+
+        File.Exists(comAssemblyPath).Should().BeTrue();
+        File.Exists(manifestPath).Should().BeTrue();
+
+        return (comAssemblyPath, manifestPath);
     }
 }

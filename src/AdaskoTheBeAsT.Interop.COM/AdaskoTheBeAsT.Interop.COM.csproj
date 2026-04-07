@@ -10,7 +10,7 @@
     <RepositoryType>github</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <Description>A lightweight .NET library for **registration-free COM interop** that enables you to use COM objects without registering them in the Windows registry. Execute COM methods in a Single Threaded Apartment (STA) with proper activation context management.</Description>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>2.1.0</PackageVersion>
     <Authors>Adam "AdaskoTheBeAsT" Pluciński</Authors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
@@ -30,6 +30,10 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(ProjectName).Test" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />

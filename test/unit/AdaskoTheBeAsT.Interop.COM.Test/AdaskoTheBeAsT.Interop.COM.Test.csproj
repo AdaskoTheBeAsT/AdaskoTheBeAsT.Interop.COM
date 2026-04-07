@@ -17,4 +17,17 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\..\x86\Debug\NativeCOM.dll">
+      <Link>NativeCOM.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>NativeCOM.dll</TargetPath>
+    </None>
+    <None Include="..\..\..\manifest\NativeCOM\NativeCOM.manifest">
+      <Link>NativeCOM.manifest</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>NativeCOM.manifest</TargetPath>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -15,7 +15,7 @@ A lightweight .NET library for **registration-free COM interop** that enables yo
 
 ## Features
 
-- ✨ Create COM objects registration-free using manifest files
+- ✨ Create COM objects registration-free using manifest files and release them explicitly when you are done
 - 🏃 Execute COM methods in Single Threaded Apartment (STA)
 - 📦 Support for single or multiple concurrent activation contexts
 - 🎯 Proper exception handling with detailed result reporting
@@ -95,6 +95,45 @@ public class ComStringProcessor
 }
 ```
 
+### Create a COM Object and Release It Later
+
+Use `Executor.Create(...)` when the COM object should outlive a single callback and you want to release it explicitly.
+
+```csharp
+using AdaskoTheBeAsT.Interop.COM;
+
+var creation = Executor.Create(
+    comDllPath,
+    manifestPath,
+    () => new NativeCOM.StringConcatenatorClass());
+
+if (!creation.Success)
+{
+    throw new InvalidOperationException("COM object creation failed.", creation.Exception);
+}
+
+var handle = creation.Value
+    ?? throw new InvalidOperationException("The COM handle was not created.");
+
+try
+{
+    var concatenator = handle.ComObject
+        ?? throw new InvalidOperationException("The COM object was not created.");
+
+    var output = concatenator.ConcatStrings("Hello", "World!");
+    Console.WriteLine(output);
+}
+finally
+{
+    var release = Executor.Free(handle);
+
+    if (!release.Success)
+    {
+        throw new InvalidOperationException("COM object release failed.", release.Exception);
+    }
+}
+```
+
 ### Multiple COM Contexts
 
 When you need to work with multiple COM components simultaneously:
@@ -110,12 +149,140 @@ var result = Executor.Execute(descriptors, () =>
 {
     // Both COM libraries are now active
     var obj1 = new ComLib1.MyClass();
-    var obj2 = ComLib2.AnotherClass();
+    var obj2 = new ComLib2.AnotherClass();
     
     // Use both objects together
     var data = obj1.GetData();
     obj2.ProcessData(data);
 });
+```
+
+### Using with AdaskoTheBeAsT.Interop.Threading
+
+When you also need a dedicated STA thread, timeout handling, or a reusable STA scheduler, combine this package with `AdaskoTheBeAsT.Interop.Threading`.
+
+```bash
+dotnet add package AdaskoTheBeAsT.Interop.Threading
+```
+
+#### One-Off COM Call with Timeout
+
+```csharp
+using AdaskoTheBeAsT.Interop.COM;
+using AdaskoTheBeAsT.Interop.Threading;
+
+public sealed class TimedComStringProcessor
+{
+    private readonly string _comDllPath;
+    private readonly string _manifestPath;
+
+    public TimedComStringProcessor(string comDllPath, string manifestPath)
+    {
+        _comDllPath = comDllPath;
+        _manifestPath = manifestPath;
+    }
+
+    public Task<string> ConcatAsync(string left, string right, CancellationToken cancellationToken)
+        => SingleThreadedApartmentTask.RunWithTimeoutAsync(
+            TimeSpan.FromSeconds(10),
+            () =>
+            {
+                string output = string.Empty;
+
+                var execution = Executor.Execute(_comDllPath, _manifestPath, () =>
+                {
+                    var concatenator = new NativeCOM.StringConcatenatorClass();
+                    output = concatenator.ConcatStrings(left, right);
+                });
+
+                if (!execution.Success)
+                {
+                    throw new InvalidOperationException("The COM call failed.", execution.Exception);
+                }
+
+                return output;
+            },
+            cancellationToken);
+}
+```
+
+#### Reuse One COM Object on a Single STA Thread
+
+```csharp
+using AdaskoTheBeAsT.Interop.COM;
+using AdaskoTheBeAsT.Interop.Threading;
+
+public sealed class ScheduledComStringProcessor : IAsyncDisposable
+{
+    private readonly string _comDllPath;
+    private readonly string _manifestPath;
+    private ComObjectHandle<NativeCOM.StringConcatenatorClass>? _handle;
+    private NativeCOM.StringConcatenatorClass? _concatenator;
+
+    public ScheduledComStringProcessor(string comDllPath, string manifestPath)
+    {
+        _comDllPath = comDllPath;
+        _manifestPath = manifestPath;
+    }
+
+    public Task InitializeAsync(CancellationToken cancellationToken)
+        => SingleThreadedApartmentTaskScheduler.RunAsync(
+            () =>
+            {
+                var creation = Executor.Create(
+                    _comDllPath,
+                    _manifestPath,
+                    () => new NativeCOM.StringConcatenatorClass());
+
+                if (!creation.Success)
+                {
+                    throw new InvalidOperationException("Failed to create the COM object.", creation.Exception);
+                }
+
+                _handle = creation.Value
+                    ?? throw new InvalidOperationException("The COM handle was not created.");
+                _concatenator = _handle.ComObject
+                    ?? throw new InvalidOperationException("The COM object was not created.");
+
+                return 0;
+            },
+            cancellationToken);
+
+    public Task<string> ConcatAsync(string left, string right, CancellationToken cancellationToken)
+        => SingleThreadedApartmentTaskScheduler.RunAsync(
+            () =>
+            {
+                if (_concatenator is null)
+                {
+                    throw new InvalidOperationException("The COM object is not initialized.");
+                }
+
+                return _concatenator.ConcatStrings(left, right);
+            },
+            cancellationToken);
+
+    public ValueTask DisposeAsync()
+        => new(
+            SingleThreadedApartmentTaskScheduler.RunAsync(
+                () =>
+                {
+                    if (_handle is not null)
+                    {
+                        var release = Executor.Free(_handle);
+
+                        _concatenator = null;
+                        _handle = null;
+
+                        if (!release.Success)
+                        {
+                            throw new InvalidOperationException("Failed to release the COM object.", release.Exception);
+                        }
+                    }
+
+                    return 0;
+                },
+                CancellationToken.None));
+}
 ```
 
 ## How It Works
@@ -290,13 +457,48 @@ Executes an action with multiple COM activation contexts.
 
 **Returns:** `Result` object containing success status and any exception
 
+#### `Create<T>(string comAssemblyPath, string manifestPath, Func<T> factory)`
+
+Creates a COM object inside a registration-free activation context and returns a `ComObjectHandle<T>`.
+Release the handle later by calling `Executor.Free(...)` on the same thread.
+
+#### `Create<T>(ICollection<ComPathDescriptor> comPathDescriptors, Func<T> factory)`
+
+Creates a COM object inside multiple registration-free activation contexts and returns a `ComObjectHandle<T>`.
+Release the handle later by calling `Executor.Free(...)` on the same thread.
+
+#### `Free<T>(ComObjectHandle<T> comObjectHandle)`
+
+Releases a handle created by `Executor.Create(...)`.
+This method is idempotent, so calling it for an already released handle succeeds without doing additional work.
+
 ### Result Class
 
 ```csharp
-public sealed class Result
+public class Result
 {
     public bool Success { get; set; }
     public Exception? Exception { get; set; }
+}
+```
+
+### ComObjectCreationResult<T> Class
+
+```csharp
+public sealed class ComObjectCreationResult<T> : Result
+    where T : class
+{
+    public ComObjectHandle<T>? Value { get; set; }
+}
+```
+
+### ComObjectHandle<T> Class
+
+```csharp
+public sealed class ComObjectHandle<T>
+    where T : class
+{
+    public T? ComObject { get; internal set; }
 }
 ```
 
@@ -310,6 +512,10 @@ public sealed class ComPathDescriptor
     public string ComManifestPath { get; }
 }
 ```
+
+### ActCtxWrongSizeException Class
+
+Thrown when the internal activation-context structure size does not match the current process architecture.
 
 ## Best Practices
 

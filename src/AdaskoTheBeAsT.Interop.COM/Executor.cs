@@ -6,20 +6,26 @@ using System.Runtime.InteropServices;
 namespace AdaskoTheBeAsT.Interop.COM;
 
 /// <summary>
-/// Executes method of COM dll in Single Threaded Apartment.
+/// Provides helpers for activating registration-free COM components, executing work inside their activation
+/// contexts, and explicitly managing longer-lived COM object lifetimes on the current thread.
 /// </summary>
 public static class Executor
 {
     /// <summary>
-    /// Executes an action within a single COM activation context.
-    /// Creates activation context from manifest, executes the action in STA, then cleans up.
+    /// Activates a single registration-free COM context, executes the supplied callback, pumps pending COM
+    /// messages, and then releases the activation context.
     /// </summary>
     /// <param name="comAssemblyPath">Full path to the COM DLL assembly.</param>
     /// <param name="manifestPath">Full path to the manifest file describing the COM component.</param>
     /// <param name="action">Action to execute within the activation context.</param>
-    /// <returns>Result indicating success or failure with optional exception details.</returns>
+    /// <returns>
+    /// A <see cref="Result"/> whose <see cref="Result.Success"/> value is <see langword="true"/> when the callback
+    /// completes successfully. When the operation fails, <see cref="Result.Success"/> is
+    /// <see langword="false"/> and <see cref="Result.Exception"/> contains the captured exception.
+    /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when comAssemblyPath or manifestPath is null.</exception>
     /// <exception cref="ArgumentException">Thrown when comAssemblyPath or manifestPath is empty or whitespace.</exception>
+    /// <remarks>Exceptions raised while activating the context or running <paramref name="action"/> are captured in the returned result instead of being rethrown.</remarks>
     public static Result Execute(
         string comAssemblyPath,
         string manifestPath,
@@ -85,15 +91,19 @@ public static class Executor
     }
 
     /// <summary>
-    /// Executes an action within multiple COM activation contexts.
-    /// Creates activation contexts from all descriptors, executes the action in STA,
-    /// then cleans up all contexts in reverse order (LIFO).
+    /// Activates multiple registration-free COM contexts, executes the supplied callback, pumps pending COM
+    /// messages, and then releases the activation contexts in reverse order.
     /// </summary>
     /// <param name="comPathDescriptors">Collection of COM path descriptors containing DLL and manifest paths.</param>
     /// <param name="action">Action to execute within all activation contexts.</param>
-    /// <returns>Result indicating success or failure with optional exception details.</returns>
+    /// <returns>
+    /// A <see cref="Result"/> whose <see cref="Result.Success"/> value is <see langword="true"/> when the callback
+    /// completes successfully. When the operation fails, <see cref="Result.Success"/> is
+    /// <see langword="false"/> and <see cref="Result.Exception"/> contains the captured exception.
+    /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors is null.</exception>
     /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty.</exception>
+    /// <remarks>Exceptions raised while activating the contexts or running <paramref name="action"/> are captured in the returned result instead of being rethrown.</remarks>
     public static Result Execute(
         ICollection<ComPathDescriptor> comPathDescriptors,
         Action action)
@@ -102,14 +112,10 @@ public static class Executor
         var hActCtxs = CreateActivationContexts(comPathDescriptors);
 
         var result = new Result { Success = false };
+        var cookies = new List<IntPtr>(hActCtxs.Count);
         try
         {
-            var cookies = new List<IntPtr>(hActCtxs.Count);
-            foreach (var hActCtx in hActCtxs)
-            {
-                var cookie = ActivateContext(hActCtx);
-                cookies.Add(cookie);
-            }
+            cookies = ActivateContexts(hActCtxs);
 
             try
             {
@@ -124,12 +130,135 @@ public static class Executor
             {
                 result.Exception = ex;
             }
-            finally
+        }
+        catch (Exception ex)
+        {
+            result.Exception = ex;
+        }
+        finally
+        {
+            DeactivateContexts(cookies);
+            ReleaseActivationContexts(hActCtxs);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates a COM object inside a single registration-free COM activation context and returns a handle that
+    /// keeps that activation state alive until the object is explicitly released.
+    /// </summary>
+    /// <typeparam name="T">The COM object type.</typeparam>
+    /// <param name="comAssemblyPath">Full path to the COM DLL assembly.</param>
+    /// <param name="manifestPath">Full path to the manifest file describing the COM component.</param>
+    /// <param name="factory">Factory that must create and return a non-<see langword="null"/> COM object while the activation context is active.</param>
+    /// <returns>
+    /// A <see cref="ComObjectCreationResult{T}"/>. On success, <see cref="Result.Success"/> is
+    /// <see langword="true"/> and <see cref="ComObjectCreationResult{T}.Value"/> contains the created
+    /// <see cref="ComObjectHandle{T}"/>. On failure, <see cref="Result.Success"/> is <see langword="false"/>,
+    /// <see cref="ComObjectCreationResult{T}.Value"/> is <see langword="null"/>, and
+    /// <see cref="Result.Exception"/> contains the captured exception.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when comAssemblyPath, manifestPath, or factory is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when comAssemblyPath or manifestPath is empty or whitespace.</exception>
+    /// <remarks>
+    /// The returned handle is thread-affine. Create, use, and release it on the same thread by calling
+    /// <see cref="Free{T}(ComObjectHandle{T})"/>.
+    /// </remarks>
+    public static ComObjectCreationResult<T> Create<T>(
+        string comAssemblyPath,
+        string manifestPath,
+        Func<T> factory)
+        where T : class
+    {
+        if (comAssemblyPath is null)
+        {
+            throw new ArgumentNullException(nameof(comAssemblyPath));
+        }
+
+        if (manifestPath is null)
+        {
+            throw new ArgumentNullException(nameof(manifestPath));
+        }
+
+        if (factory is null)
+        {
+            throw new ArgumentNullException(nameof(factory));
+        }
+
+        if (string.IsNullOrWhiteSpace(comAssemblyPath))
+        {
+            throw new ArgumentException("COM assembly path cannot be empty or whitespace.", nameof(comAssemblyPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new ArgumentException("Manifest path cannot be empty or whitespace.", nameof(manifestPath));
+        }
+
+        var descriptor = new ComPathDescriptor(comAssemblyPath, manifestPath);
+        return Create([descriptor], factory);
+    }
+
+    /// <summary>
+    /// Creates a COM object inside multiple registration-free COM activation contexts and returns a handle that
+    /// keeps those activation states alive until the object is explicitly released.
+    /// </summary>
+    /// <typeparam name="T">The COM object type.</typeparam>
+    /// <param name="comPathDescriptors">Collection of COM path descriptors containing DLL and manifest paths.</param>
+    /// <param name="factory">Factory that must create and return a non-<see langword="null"/> COM object while the activation contexts are active.</param>
+    /// <returns>
+    /// A <see cref="ComObjectCreationResult{T}"/>. On success, <see cref="Result.Success"/> is
+    /// <see langword="true"/> and <see cref="ComObjectCreationResult{T}.Value"/> contains the created
+    /// <see cref="ComObjectHandle{T}"/>. On failure, <see cref="Result.Success"/> is <see langword="false"/>,
+    /// <see cref="ComObjectCreationResult{T}.Value"/> is <see langword="null"/>, and
+    /// <see cref="Result.Exception"/> contains the captured exception.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors or factory is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty.</exception>
+    /// <remarks>
+    /// The returned handle is thread-affine. Create, use, and release it on the same thread by calling
+    /// <see cref="Free{T}(ComObjectHandle{T})"/>.
+    /// </remarks>
+    public static ComObjectCreationResult<T> Create<T>(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        Func<T> factory)
+        where T : class
+    {
+        ValidateComPathDescriptors(comPathDescriptors);
+
+        if (factory is null)
+        {
+            throw new ArgumentNullException(nameof(factory));
+        }
+
+        var hActCtxs = CreateActivationContexts(comPathDescriptors);
+
+        var result = new ComObjectCreationResult<T> { Success = false };
+        var cookies = new List<IntPtr>(hActCtxs.Count);
+        try
+        {
+            cookies = ActivateContexts(hActCtxs);
+
+            try
             {
-                for (int i = cookies.Count - 1; i >= 0; i--)
+#pragma warning disable CC0031
+                var comObject = factory();
+#pragma warning restore CC0031
+                if (comObject is null)
                 {
-                    NativeMethods.DeactivateActCtx(0, cookies[i]);
+                    throw new InvalidOperationException("The COM factory returned null.");
                 }
+
+                // Pump COM messages in STA apartment
+                NativeMethods.PumpPendingMessages();
+
+                result.Value = new ComObjectHandle<T>(comObject, [.. hActCtxs], [.. cookies]);
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Exception = ex;
             }
         }
         catch (Exception ex)
@@ -138,10 +267,69 @@ public static class Executor
         }
         finally
         {
-            for (int i = hActCtxs.Count - 1; i >= 0; i--)
+            if (!result.Success)
             {
-                NativeMethods.ReleaseActCtx(hActCtxs[i]);
+                DeactivateContexts(cookies);
+                ReleaseActivationContexts(hActCtxs);
             }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Releases a COM object handle that was previously created by <see cref="Create{T}(string,string,Func{T})"/>
+    /// or <see cref="Create{T}(ICollection{ComPathDescriptor},Func{T})"/>, then tears down the activation
+    /// contexts that keep the object alive.
+    /// </summary>
+    /// <typeparam name="T">The COM object type.</typeparam>
+    /// <param name="comObjectHandle">The COM object handle to release.</param>
+    /// <returns>
+    /// A <see cref="Result"/> whose <see cref="Result.Success"/> value is <see langword="true"/> when the COM
+    /// object and activation contexts are released successfully. Releasing an already released handle returns a
+    /// successful result without performing additional work.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when comObjectHandle is null.</exception>
+    /// <remarks>
+    /// This method is idempotent and should be called on the same thread that created the handle. After release,
+    /// <see cref="ComObjectHandle{T}.ComObject"/> becomes <see langword="null"/> and the handle should no longer be used.
+    /// </remarks>
+    public static Result Free<T>(ComObjectHandle<T> comObjectHandle)
+        where T : class
+    {
+        if (comObjectHandle is null)
+        {
+            throw new ArgumentNullException(nameof(comObjectHandle));
+        }
+
+        if (comObjectHandle.IsReleased)
+        {
+            return new Result { Success = true };
+        }
+
+        var result = new Result { Success = false };
+        try
+        {
+            var comObject = comObjectHandle.ComObject;
+            if (comObject is not null && Marshal.IsComObject(comObject))
+            {
+#pragma warning disable CA1416
+                Marshal.FinalReleaseComObject(comObject);
+#pragma warning restore CA1416
+            }
+
+            NativeMethods.PumpPendingMessages();
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            result.Exception = ex;
+        }
+        finally
+        {
+            DeactivateContexts(comObjectHandle.ActivationCookies);
+            ReleaseActivationContexts(comObjectHandle.ActivationContextHandles);
+            comObjectHandle.MarkReleased();
         }
 
         return result;
@@ -172,6 +360,43 @@ public static class Executor
         }
 
         return hActCtxs;
+    }
+
+    private static List<IntPtr> ActivateContexts(IReadOnlyList<IntPtr> activationContextHandles)
+    {
+        var cookies = new List<IntPtr>(activationContextHandles.Count);
+
+        try
+        {
+            foreach (var hActCtx in activationContextHandles)
+            {
+                var cookie = ActivateContext(hActCtx);
+                cookies.Add(cookie);
+            }
+
+            return cookies;
+        }
+        catch
+        {
+            DeactivateContexts(cookies);
+            throw;
+        }
+    }
+
+    private static void DeactivateContexts(IReadOnlyList<IntPtr> cookies)
+    {
+        for (int i = cookies.Count - 1; i >= 0; i--)
+        {
+            NativeMethods.DeactivateActCtx(0, cookies[i]);
+        }
+    }
+
+    private static void ReleaseActivationContexts(IReadOnlyList<IntPtr> activationContextHandles)
+    {
+        for (int i = activationContextHandles.Count - 1; i >= 0; i--)
+        {
+            NativeMethods.ReleaseActCtx(activationContextHandles[i]);
+        }
     }
 
     private static ActCtx PrepareContext(ComPathDescriptor comPathDescriptor)
