@@ -1,6 +1,6 @@
 # ADR-0004: Expose Functionality Through a Static `Executor` Class
 
-- Status: Accepted — mockability concerns addressed by [ADR-0013](0013-iexecutor-abstraction.md)
+- Status: Accepted — mockability concerns addressed by [ADR-0013](0013-icomexecutor-abstraction.md)
 - Date: 2023-12-09
 - Deciders: @AdaskoTheBeAsT
 - Release: v1.0.0
@@ -29,4 +29,4 @@ The primary public surface is a `static class Executor` that exposes `Execute`, 
 ## References
 
 - `src/AdaskoTheBeAsT.Interop.COM/Executor.cs`
-- [ADR-0013](0013-iexecutor-abstraction.md)
+- [ADR-0013](0013-icomexecutor-abstraction.md)

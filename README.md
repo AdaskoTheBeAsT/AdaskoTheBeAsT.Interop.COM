@@ -1,5 +1,4 @@
 # AdaskoTheBeAsT.Interop.COM
-# AdaskoTheBeAsT.Interop.COM
 
 > Registration-free COM interop for .NET — skip `regsvr32`, skip the registry, skip the drama.
 

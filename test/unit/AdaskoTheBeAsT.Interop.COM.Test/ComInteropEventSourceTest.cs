@@ -17,22 +17,54 @@ public class ComInteropEventSourceTest
     [Fact]
     public void HandleLeakedShouldEmitWarningEventWhenListenerIsAttached()
     {
+        // Use a unique sentinel type-name per test: ComInteropEventSource.Log is a process-wide
+        // singleton, so finalizers from other tests (e.g. ComObjectHandleDisposeTest) can also
+        // emit HandleLeaked events on the same listener at unpredictable times. Filtering by
+        // payload keeps the assertion stable regardless of cross-test GC timing.
+        const string sentinel = "Sentinel_HandleLeakedShouldEmit";
         using var listener = new CapturingEventListener(ComInteropEventSource.Log);
 
-        ComInteropEventSource.Log.HandleLeaked("IFoo");
+        ComInteropEventSource.Log.HandleLeaked(sentinel);
 
-        listener.Events.Should().ContainSingle();
-        var evt = listener.Events[0];
-        evt.EventId.Should().Be(ComInteropEventSource.HandleLeakedEventId);
+        var matches = listener.Events
+            .FindAll(e => e.EventId == ComInteropEventSource.HandleLeakedEventId
+                && e.Payload is { Count: > 0 }
+                && string.Equals(e.Payload[0] as string, sentinel, System.StringComparison.Ordinal));
+        matches.Should().ContainSingle();
+        var evt = matches[0];
         evt.Level.Should().Be(EventLevel.Warning);
-        evt.Payload.Should().NotBeNull();
-        evt.Payload![0].Should().Be("IFoo");
     }
 
     [Fact]
     public void HandleLeakedShouldBeSilentWhenNoListenerIsAttached()
     {
         var act = () => ComInteropEventSource.Log.HandleLeaked("IBar");
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void HandleReleaseFailedShouldEmitErrorEventWhenListenerIsAttached()
+    {
+        const string sentinel = "Sentinel_HandleReleaseFailedShouldEmit";
+        using var listener = new CapturingEventListener(ComInteropEventSource.Log);
+
+        ComInteropEventSource.Log.HandleReleaseFailed(sentinel, "native release failed");
+
+        var matches = listener.Events
+            .FindAll(e => e.EventId == ComInteropEventSource.HandleReleaseFailedEventId
+                && e.Payload is { Count: > 1 }
+                && string.Equals(e.Payload[0] as string, sentinel, System.StringComparison.Ordinal));
+        matches.Should().ContainSingle();
+        var evt = matches[0];
+        evt.Level.Should().Be(EventLevel.Error);
+        (evt.Payload![1] as string).Should().Be("native release failed");
+    }
+
+    [Fact]
+    public void HandleReleaseFailedShouldBeSilentWhenNoListenerIsAttached()
+    {
+        var act = () => ComInteropEventSource.Log.HandleReleaseFailed("IQux", "err");
 
         act.Should().NotThrow();
     }

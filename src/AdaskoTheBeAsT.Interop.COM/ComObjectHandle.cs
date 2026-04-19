@@ -102,11 +102,29 @@ public sealed class ComObjectHandle<T>
     /// Equivalent to <see cref="Executor.Free{T}(ComObjectHandle{T})"/>; the call is idempotent and must be
     /// performed on the thread that created the handle.
     /// </summary>
+    /// <remarks>
+    /// Native deactivation or <c>Marshal.FinalReleaseComObject</c> can fail. Because
+    /// <see cref="IDisposable.Dispose"/> must not throw, a non-success <see cref="Result"/> returned by
+    /// <see cref="Executor.Free{T}(ComObjectHandle{T})"/> is surfaced through
+    /// <c>ComInteropEventSource.HandleReleaseFailed</c> (Event ID
+    /// <c>ComInteropEventSource.HandleReleaseFailedEventId</c>), and via
+    /// <see cref="Debug.Fail(string)"/> when a debugger is attached.
+    /// </remarks>
     public void Dispose()
     {
         if (!IsReleased)
         {
-            Executor.Free(this);
+            var result = Executor.Free(this);
+            if (!result.Success)
+            {
+                var errorMessage = result.Exception?.Message ?? "unknown error";
+                ComInteropEventSource.Log.HandleReleaseFailed(typeof(T).Name, errorMessage);
+                if (Debugger.IsAttached)
+                {
+                    Debug.Fail(
+                        "ComObjectHandle<" + typeof(T).Name + ">.Dispose() failed to release cleanly: " + errorMessage);
+                }
+            }
         }
 
         GC.SuppressFinalize(this);

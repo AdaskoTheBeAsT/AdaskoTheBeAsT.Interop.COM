@@ -30,6 +30,8 @@ internal sealed class ComInteropEventSource
 
     internal const int HandleLeakedEventId = 1;
 
+    internal const int HandleReleaseFailedEventId = 2;
+
     private ComInteropEventSource()
     {
     }
@@ -48,6 +50,26 @@ internal sealed class ComInteropEventSource
         if (IsEnabled())
         {
             WriteEvent(HandleLeakedEventId, typeName);
+        }
+    }
+
+    /// <summary>
+    /// Emitted when <c>ComObjectHandle&lt;T&gt;.Dispose()</c> invokes <c>Executor.Free</c> and the
+    /// release returns a non-success <c>Result</c> (native deactivation, release, or COM final
+    /// release failed). Callers that consume the handle through <c>using</c> would otherwise miss
+    /// the failure entirely, because <c>Dispose</c> cannot throw without violating the pattern.
+    /// </summary>
+    /// <param name="typeName">Short name of the generic argument <c>T</c>.</param>
+    /// <param name="errorMessage">Exception message produced by the failed release, or a sentinel value.</param>
+    [Event(
+        HandleReleaseFailedEventId,
+        Level = EventLevel.Error,
+        Message = "ComObjectHandle<{0}>.Dispose() failed to release cleanly: {1}")]
+    public void HandleReleaseFailed(string typeName, string errorMessage)
+    {
+        if (IsEnabled())
+        {
+            WriteEvent(HandleReleaseFailedEventId, typeName, errorMessage);
         }
     }
 }
