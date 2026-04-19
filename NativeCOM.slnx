@@ -1,0 +1,21 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="Win32" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/NativeCOM/NativeCOM.vcxproj" Id="cf5b6b5e-9b68-4341-95a3-55dd436310ac" />
+  </Folder>
+  <Folder Name="/manifest/">
+    <File Path="manifest/NativeCOM/NativeCOM.manifest" />
+  </Folder>
+  <Folder Name="/.props/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="generatelib.bat" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>

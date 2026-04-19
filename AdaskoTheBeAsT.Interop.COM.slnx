@@ -25,7 +25,6 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/AdaskoTheBeAsT.Interop.COM/AdaskoTheBeAsT.Interop.COM.csproj" />
-    <Project Path="src/NativeCOM/NativeCOM.vcxproj" Id="cf5b6b5e-9b68-4341-95a3-55dd436310ac" />
   </Folder>
   <Folder Name="/test/" />
   <Folder Name="/test/.props/">
