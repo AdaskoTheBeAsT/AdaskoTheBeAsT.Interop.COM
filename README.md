@@ -1,41 +1,120 @@
 # AdaskoTheBeAsT.Interop.COM
+# AdaskoTheBeAsT.Interop.COM
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+> Registration-free COM interop for .NET — skip `regsvr32`, skip the registry, skip the drama.
 
-A lightweight .NET library for **registration-free COM interop** that enables you to use COM objects without registering them in the Windows registry. Execute COM methods in a Single Threaded Apartment (STA) with proper activation context management.
+[![NuGet](https://img.shields.io/nuget/v/AdaskoTheBeAsT.Interop.COM.svg?label=AdaskoTheBeAsT.Interop.COM&logo=nuget)](https://www.nuget.org/packages/AdaskoTheBeAsT.Interop.COM/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/AdaskoTheBeAsT.Interop.COM.svg?logo=nuget)](https://www.nuget.org/packages/AdaskoTheBeAsT.Interop.COM/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+![TFMs](https://img.shields.io/badge/TFMs-net10.0%20%7C%20net9.0%20%7C%20net8.0%20%7C%20net4.6.2%E2%80%93net4.8.1%20%7C%20netstandard2.0-512BD4?logo=dotnet)
+![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
+![Warnings](https://img.shields.io/badge/warnings--as--errors-on-green)
+![Deterministic](https://img.shields.io/badge/deterministic%20build-on-blue)
+![Tests](https://img.shields.io/badge/tests-567%20across%209%20TFMs-brightgreen)
+![Coverage](https://img.shields.io/badge/local%20coverage-92.8%25-brightgreen)
 
-## Why Use This Library?
+### 🔬 Code quality — SonarCloud
 
-- 🚀 **No COM Registration Required** - Use COM DLLs directly without `regsvr32` or admin rights
-- 🎯 **Manifest-Based Activation** - Leverage side-by-side (SxS) assembly loading
-- 🔒 **Safe Resource Management** - Automatic cleanup of activation contexts
-- 🧵 **STA Message Pumping** - Proper handling of COM message loops
-- 🎨 **Clean API** - Simple, fluent interface for COM execution
-- ✅ **Battle-Tested** - Comprehensive analyzer suite ensuring code quality
+> Badges reflect the shared umbrella project `AdaskoTheBeAsT_AdaskoTheBeAsT.Interop` which hosts the combined analysis for every `AdaskoTheBeAsT.Interop.*` library in the monorepo.
 
-## Features
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=coverage)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=coverage)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=sqale_rating)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=sqale_rating)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=reliability_rating)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=reliability_rating)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=security_rating)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=security_rating)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=bugs)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=bugs)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=vulnerabilities)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=vulnerabilities)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=code_smells)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=code_smells)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=duplicated_lines_density)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=duplicated_lines_density)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=sqale_index)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=sqale_index)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=ncloc)](https://sonarcloud.io/component_measures?id=AdaskoTheBeAsT_AdaskoTheBeAsT.Interop&metric=ncloc)
 
-- ✨ Create COM objects registration-free using manifest files and release them explicitly when you are done
-- 🏃 Execute COM methods in Single Threaded Apartment (STA)
-- 📦 Support for single or multiple concurrent activation contexts
-- 🎯 Proper exception handling with detailed result reporting
-- 🧹 `ComObjectHandle<T>` implements `IDisposable` for deterministic cleanup via `using`
-- 🧩 `IComExecutor` abstraction and `ComExecutor` implementation for dependency injection and unit testing
-- 🪟 `[SupportedOSPlatform("windows")]` annotations on the public surface for static analysis
-- 🔧 Broad target support: .NET Standard 2.0, .NET 8.0 / 9.0 / 10.0, .NET Framework 4.6.2 / 4.7 / 4.7.1 / 4.7.2 / 4.8 / 4.8.1
+---
 
-## Installation
+## 👋 Hello, COM-wrangler
 
-```bash
+So you've got a COM component. Maybe it's a vendor ActiveX control from 2005 that still refuses to die. Maybe it's an in-house ATL library that your colleague shipped and then went on sabbatical. Maybe it's a third-party SDK that cheerfully assumes `regsvr32` ran as Administrator on every machine that will ever exist. 🙃
+
+All you wanted to do was call a single method on it. From a .NET process. Ideally without:
+
+- 🚫 polluting the Windows registry
+- 🔐 requiring Administrator rights to install
+- 🧟 breaking when another version of the same COM component is registered globally
+- 🎲 guessing whether your thread is in the right apartment
+- 💀 leaking activation contexts because the API that frees them is `extern "C" void WINAPI` and nobody documented what happens if you forget
+
+`AdaskoTheBeAsT.Interop.COM` is the small, focused library that turns *all of that* into a single call:
+
+```csharp
+executor.Execute(comDllPath, manifestPath, () =>
+{
+    var obj = new YourCom.SomeClass();
+    obj.DoTheThing();
+});
+```
+
+The activation context is created from your manifest, pushed on the current thread, your `Action` runs in a real STA with message pumping, and everything is torn down cleanly even when you throw. ✨
+
+---
+
+## ✨ Why you'll love this
+
+- 🚀 **No COM registration ever.** `regsvr32` stays uninstalled. No admin rights. Your build server thanks you.
+- 📜 **Manifest-based side-by-side activation.** Standard Windows SxS — battle-tested since Windows XP SP2, used by every in-box OS component.
+- 🧵 **Real STA, real message pump.** `CreateActCtx` → `ActivateActCtx` → `CoInitialize(STA)` → run work → `PeekMessage`/`TranslateMessage`/`DispatchMessage` pump → `DeactivateActCtx` → `ReleaseActCtx`. You just write the inner `Action`. ([ADR-0011](docs/adr/0011-pump-sta-messages-after-com-calls.md))
+- 🧹 **`ComObjectHandle<T>` is `IDisposable`.** `using var handle = creation.Value!;` — that's your whole cleanup story. Forget to dispose? A diagnostic-only finalizer emits a `HandleLeaked` event on an `EventSource` so you find the bug instead of crashing later. ([ADR-0012](docs/adr/0012-com-object-handle-idisposable.md), [ADR-0018](docs/adr/0018-eventsource-for-leaked-handles.md))
+- 🧩 **Drop-in DI.** `services.AddSingleton<IComExecutor, ComExecutor>();` and inject `IComExecutor` anywhere. Unit tests replace it with a `Mock<IComExecutor>` in one line. ([ADR-0013](docs/adr/0013-icomexecutor-abstraction.md))
+- 🖥️ **10 TFMs, all green.** `net10.0`, `net9.0`, `net8.0`, `net481`, `net48`, `net472`, `net471`, `net47`, `net462`, `netstandard2.0` — `TreatWarningsAsErrors=true` on every cell. ([ADR-0007](docs/adr/0007-multi-target-frameworks.md))
+- 🏛️ **AnyCPU library.** Consumers no longer force 32-bit; a single NuGet works for both x86 and x64 host processes. ([ADR-0016](docs/adr/0016-remove-x86-platform-target.md))
+- 🪟 **`[SupportedOSPlatform("windows")]` on the public surface.** Static analysis catches cross-platform call-sites at compile time on TFMs that understand the attribute. ([ADR-0014](docs/adr/0014-supported-os-platform-windows.md))
+- 🔭 **Built-in observability.** `EventSource` named `AdaskoTheBeAsT.Interop.COM` emits `HandleLeaked` (Event ID `1`). Subscribe with `dotnet-trace --providers AdaskoTheBeAsT.Interop.COM` or an in-process `EventListener`.
+- ✏️ **Source Link + snupkg.** F11 steps into this library from your debugger. No guessing which version is deployed.
+- 📚 **19 ADRs** documenting every meaningful design choice.
+- 🧪 **567 test invocations** (63 tests × 9 TFMs) plus **92.8 % local line coverage** of the shipped assembly. 9 of 10 source files at 100 %.
+
+---
+
+## 📦 Package
+
+| Package | What it gives you |
+| --- | --- |
+| [`AdaskoTheBeAsT.Interop.COM`](https://www.nuget.org/packages/AdaskoTheBeAsT.Interop.COM/) | ⚓ `IComExecutor` + `ComExecutor`, static `Executor`, `ComObjectHandle<T>`, `ComPathDescriptor`, `ComObjectCreationResult<T>`, `Result`, `ComInteropEventSource`. One assembly, zero runtime dependencies beyond the BCL. |
+
+### ⬇️ Install
+
+```powershell
 dotnet add package AdaskoTheBeAsT.Interop.COM
 ```
 
-Or via NuGet Package Manager:
-```
+```powershell
+# or, via the Package Manager Console
 Install-Package AdaskoTheBeAsT.Interop.COM
 ```
 
-## Quick Start
+Symbols ship as `.snupkg` with Source Link and embedded untracked sources. Step in. Look around. It's fine.
+
+---
+
+## 🗺️ Target framework matrix
+
+| TFM | Status | Notes |
+| --- | :-: | --- |
+| `net10.0` | ✅ | Primary target; `LibraryImport` source-gen P/Invoke, `[SupportedOSPlatform]`, `AllowUnsafeBlocks`. |
+| `net9.0` | ✅ | Primary target. |
+| `net8.0` | ✅ | Primary target. |
+| `net481` | ✅ | Windows desktop. |
+| `net48` | ✅ | Windows desktop. |
+| `net472` | ✅ | Windows desktop. |
+| `net471` | ✅ | Windows desktop. |
+| `net47` | ✅ | Windows desktop. |
+| `net462` | ✅ | Windows desktop. |
+| `netstandard2.0` | ✅ | Classic fallback; `[SupportedOSPlatform]` downgrades to no-op. |
+
+Every cell is built with `TreatWarningsAsErrors=true`, `ContinuousIntegrationBuild=true`, `Deterministic=true`, and exercised by CI. Consumers on a single TFM always win via NuGet TFM precedence — you don't have to know this matrix exists.
+
+---
+
+## 🚀 Quick Start
 
 > **Recommended API:** `IComExecutor` (implemented by `ComExecutor`). Inject it into your types and it will be trivially testable. The static `Executor` class remains available for backward compatibility with v2.x code, but **all new code should use `IComExecutor`**.
 
@@ -380,7 +459,7 @@ public sealed class ScheduledComStringProcessor : IAsyncDisposable
 }
 ```
 
-## Dependency Injection
+## 🧩 Dependency Injection
 
 This library does **not** ship a separate `*.DependencyInjection` NuGet package (see [ADR-0017](docs/adr/0017-no-dependency-injection-package.md)). `ComExecutor` is stateless and needs no configuration, so the canonical wiring is a one-liner using `Microsoft.Extensions.DependencyInjection`. Logging, metrics, and named/keyed resolution are achieved by composing `IComExecutor` with standard DI building blocks — no library-specific helpers required.
 
@@ -586,7 +665,7 @@ services.Decorate<IComExecutor, LoggingComExecutor>(); // runs first (outermost)
 
 Consume the metrics via your preferred exporter — OpenTelemetry, Application Insights, `dotnet-counters`, etc. — by subscribing to the meter name `"AdaskoTheBeAsT.Interop.COM"`.
 
-## How It Works
+## ⚙️ How It Works
 
 1. **Activation Context Creation** - Creates Windows activation context from your manifest file
 2. **Context Activation** - Activates the context to enable registration-free COM
@@ -594,7 +673,7 @@ Consume the metrics via your preferred exporter — OpenTelemetry, Application I
 4. **Message Pumping** - Processes Windows messages for COM callbacks
 5. **Cleanup** - Automatically deactivates and releases contexts
 
-## Creating COM Manifests
+## 📜 Creating COM Manifests
 
 ### Using ManifestMaker (Commercial Tool)
 
@@ -733,7 +812,7 @@ if (!result.Success)
 }
 ```
 
-## API Reference
+## 📖 API Reference
 
 ### `IComExecutor` Interface (recommended)
 
@@ -866,7 +945,7 @@ public sealed class ComPathDescriptor
 
 Thrown when the internal activation-context structure size does not match the current process architecture.
 
-## Best Practices
+## 🎯 Best Practices
 
 1. ✅ **Always check `Result.Success`** before assuming COM execution succeeded
 2. ✅ **Use absolute paths** for COM DLL and manifest files
@@ -876,13 +955,13 @@ Thrown when the internal activation-context structure size does not match the cu
 6. ⚠️ **Avoid long-running operations** in the action delegate
 7. ⚠️ **Be aware of STA threading model** requirements
 
-## Requirements
+## 📋 Requirements
 
 - **OS**: Windows (uses Windows-specific APIs: kernel32.dll, user32.dll). The public surface is annotated with `[SupportedOSPlatform("windows")]` on .NET 8+ so cross-platform analyzers (CA1416) will flag misuse.
 - **Framework**: .NET Standard 2.0, .NET 8.0 / 9.0 / 10.0, .NET Framework 4.6.2 / 4.7 / 4.7.1 / 4.7.2 / 4.8 / 4.8.1
 - **Architecture**: x86, x64 (defined in your project configuration)
 
-## Troubleshooting
+## 🩺 Troubleshooting
 
 ### Common Issues
 
@@ -941,7 +1020,7 @@ public sealed class LeakedHandleListener : EventListener
 
 Any non-zero rate of `HandleLeaked` events is a bug in the consuming code — either add a `using` statement around the handle or call `Executor.Free` explicitly on the creating thread.
 
-## Building from Source
+## 🧪 Building from Source
 
 ```bash
 git clone https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM.git
@@ -956,7 +1035,7 @@ The project includes:
 - Native COM example (`src/NativeCOM`)
 - Unit tests (`test/unit/AdaskoTheBeAsT.Interop.COM.Test`)
 
-## Code Quality
+## ✅ Code Quality
 
 This project maintains high code quality standards with:
 - 20+ static analyzers (StyleCop, Roslynator, SonarAnalyzer, etc.)
@@ -965,7 +1044,7 @@ This project maintains high code quality standards with:
 - Unit test coverage
 - Strict warning-as-error policy
 
-## Contributing
+## 🙋 Contributing
 
 Contributions are welcome! Please:
 1. Fork the repository
@@ -974,7 +1053,7 @@ Contributions are welcome! Please:
 4. Add unit tests for new functionality
 5. Submit a pull request
 
-## Changelog
+## 📜 Changelog
 
 Historical design decisions are captured as ADRs in [`docs/adr/`](docs/adr/README.md).
 
@@ -1009,7 +1088,7 @@ Breaking only in the sense that new analyzer warnings may surface in consumer co
 
 - Initial public release: static `Executor`, `Result` pattern, `netstandard2.0` target, internal `NativeMethods` wrapping `kernel32`/`user32`. (ADR-0002, ADR-0003, ADR-0004, ADR-0005)
 
-## Migration Guide: v2.x → v3.0
+## 🚚 Migration Guide: v2.x → v3.0
 
 The public API is source-compatible. No symbol has been removed or renamed. The following notes help you adopt the v3.0 idioms and explain the observable changes.
 
@@ -1098,20 +1177,208 @@ If you forget to call `Dispose`/`Executor.Free`, the finalizer will emit `Debug.
 - If you were installing the `netstandard2.0` DLL into a .NET Framework 4.6.2-4.8.1 app, v3.0 now ships dedicated DLLs for each of those TFMs. NuGet will pick the best match automatically; no action required.
 - `.NET 10.0` is available as a first-class target.
 
-## License
+## 🏗️ Building native COM payloads for 32-bit and 64-bit hosts
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Registration-free COM requires three artefacts that match the bitness of the host process: the **native COM DLL** (produced by your C++ project), the **side-by-side manifest** (`processorArchitecture="x86"` vs `"amd64"`), and the **managed interop assembly** (`Interop.<Lib>.dll`) produced by `TlbImp.exe`. The .NET library in this repository is `AnyCPU` — it will load in either bitness — but the native DLL is arch-specific. This section documents two patterns you can use when you need to ship or test your COM surface on both architectures.
 
-## Credits
+The sample in `src/NativeCOM` (built through `NativeCOM.slnx`) and the test project (`test/unit/AdaskoTheBeAsT.Interop.COM.Test`) follow **Option A** out of the box.
 
-Created and maintained by [Adam Pluciński](https://github.com/AdaskoTheBeAsT)
+### Option A - one agnostic interop assembly
 
-## Related Resources
+`Interop.<Lib>.dll` is metadata-only. It contains COM interop attributes, IIDs, CLSIDs, and type declarations, but zero executable code. If you pass `/machine:Agnostic` to `TlbImp`, you get a pure MSIL assembly that loads from both 32-bit and 64-bit processes. Only the native DLL and the manifest differ between arches.
 
-- [Registration-Free COM Interop](https://learn.microsoft.com/en-us/dotnet/framework/interop/registration-free-com-interop)
-- [Activation Contexts](https://learn.microsoft.com/en-us/windows/win32/sbscs/activation-contexts)
-- [Side-by-Side Assemblies](https://learn.microsoft.com/en-us/windows/win32/sbscs/about-side-by-side-assemblies-)
+Generate the agnostic interop assembly once (the existing `generatelib.bat` in this repo does exactly this):
+
+```bat
+"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\TlbImp.exe" ^
+    .\x86\Debug\NativeCOM.dll ^
+    /out:.\x86\Debug\Interop.NativeCOM.dll ^
+    /namespace:NativeCOM ^
+    /machine:Agnostic
+```
+
+Then route the arch-specific pieces with TFM conditions in your csproj:
+
+```xml
+<PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
+  <PlatformTarget>x86</PlatformTarget>
+</PropertyGroup>
+
+<!-- One MSIL-neutral interop assembly works for both 32-bit and 64-bit test hosts -->
+<ItemGroup>
+  <Reference Include="Interop.NativeCOM">
+    <HintPath>..\..\..\x86\Debug\Interop.NativeCOM.dll</HintPath>
+  </Reference>
+</ItemGroup>
+
+<!-- 32-bit native payload + x86 manifest for .NET Framework TFMs -->
+<ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+  <None Include="..\..\..\x86\Debug\NativeCOM.dll">
+    <Link>NativeCOM.dll</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  <None Include="..\..\..\manifest\NativeCOM\NativeCOM.manifest">
+    <Link>NativeCOM.manifest</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
+<!-- 64-bit native payload + amd64 manifest for .NET Core TFMs -->
+<ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+  <None Include="..\..\..\x64\Debug\NativeCOM.dll">
+    <Link>NativeCOM.dll</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  <None Include="..\..\..\manifest\NativeCOM\NativeCOM.x64.manifest">
+    <Link>NativeCOM.manifest</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+```
+
+The two manifests differ only in `processorArchitecture`:
+
+```xml
+<!-- manifest\NativeCOM\NativeCOM.manifest (32-bit) -->
+<assemblyIdentity name="NativeCOM" version="1.0.0.0" type="win32" processorArchitecture="x86"/>
+
+<!-- manifest\NativeCOM\NativeCOM.x64.manifest (64-bit) -->
+<assemblyIdentity name="NativeCOM" version="1.0.0.0" type="win32" processorArchitecture="amd64"/>
+```
+
+Verify the interop assembly is truly architecture-neutral:
+
+```powershell
+corflags .\x86\Debug\Interop.NativeCOM.dll
+# Expected:
+#   ILONLY    : 1
+#   32BITREQ  : 0
+#   32BITPREF : 0
+```
+
+**Pros** - one interop assembly to ship and track in source control. No arch-matching logic in the consuming csproj beyond the native DLL and manifest pair.
+**Cons** - none of any consequence for metadata-only interop assemblies. If your `TlbImp`-generated assembly ever had to do platform-specific marshalling (extremely rare and usually a sign your IDL uses non-portable types like raw `LONG_PTR` in public signatures), the agnostic flag would hide the mismatch.
+
+### Option B - two arch-specific interop assemblies
+
+If you prefer explicit per-arch artefacts (sometimes required by compliance tooling or when your IDL genuinely has architecture-dependent types), build two separate `Interop.<Lib>.dll` copies - one per bitness. This requires the COM DLL's embedded type library to be emitted with the correct `SYSKIND`, otherwise `TlbImp /machine:X64` will fail with `TI2010: A single valid machine type compatible with the input type library must be specified.`
+
+**Step 1 - make MIDL emit a 64-bit TLB for x64 configurations.** Open `NativeCOM.vcxproj` (or your own C++ project), locate the `<ItemDefinitionGroup>` entries for the x64 configurations, and add `<TargetEnvironment>X64</TargetEnvironment>` inside the `<Midl>` block:
+
+```xml
+<ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <Midl>
+    <TargetEnvironment>X64</TargetEnvironment>
+    <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <MkTypLibCompatible>false</MkTypLibCompatible>
+    <!-- existing <HeaderFileName>, <InterfaceIdentifierFileName>, etc. -->
+  </Midl>
+  <!-- ... -->
+</ItemDefinitionGroup>
+
+<ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <Midl>
+    <TargetEnvironment>X64</TargetEnvironment>
+    <!-- ... -->
+  </Midl>
+</ItemDefinitionGroup>
+```
+
+For the `Win32` configurations either leave `<TargetEnvironment>` unset (the default produces a 32-bit TLB) or set it explicitly to `Win32`.
+
+**Step 2 - rebuild the native DLL for both platforms.** `NativeCOM.slnx` in this repository carries both `x64` and `Win32` configurations; run the build in Visual Studio (or a Developer Command Prompt) for each arch so you end up with `x86\Debug\NativeCOM.dll` *and* `x64\Debug\NativeCOM.dll` whose embedded TLBs have the matching `SYSKIND`.
+
+**Step 3 - run `TlbImp` twice, once per arch.** Point it at each arch-specific DLL and emit two arch-stamped interop assemblies:
+
+```bat
+"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\TlbImp.exe" ^
+    .\x86\Debug\NativeCOM.dll ^
+    /out:.\x86\Debug\Interop.NativeCOM.dll ^
+    /namespace:NativeCOM ^
+    /machine:X86
+
+"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\TlbImp.exe" ^
+    .\x64\Debug\NativeCOM.dll ^
+    /out:.\x64\Debug\Interop.NativeCOM.dll ^
+    /namespace:NativeCOM ^
+    /machine:X64
+```
+
+Verify the two assemblies have the `32BITREQ` flag set correctly:
+
+```powershell
+corflags .\x86\Debug\Interop.NativeCOM.dll   # 32BITREQ : 1
+corflags .\x64\Debug\Interop.NativeCOM.dll   # 32BITREQ : 0 (x64 only)
+```
+
+**Step 4 - TFM-condition the `Reference` as well.** Unlike Option A, the interop assembly now differs per arch, so extend the TFM conditions to both the native payload, manifest, **and** the managed reference:
+
+```xml
+<ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+  <Reference Include="Interop.NativeCOM">
+    <HintPath>..\..\..\x86\Debug\Interop.NativeCOM.dll</HintPath>
+  </Reference>
+  <None Include="..\..\..\x86\Debug\NativeCOM.dll">
+    <Link>NativeCOM.dll</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  <None Include="..\..\..\manifest\NativeCOM\NativeCOM.manifest">
+    <Link>NativeCOM.manifest</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
+<ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+  <Reference Include="Interop.NativeCOM">
+    <HintPath>..\..\..\x64\Debug\Interop.NativeCOM.dll</HintPath>
+  </Reference>
+  <None Include="..\..\..\x64\Debug\NativeCOM.dll">
+    <Link>NativeCOM.dll</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  <None Include="..\..\..\manifest\NativeCOM\NativeCOM.x64.manifest">
+    <Link>NativeCOM.manifest</Link>
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+```
+
+**Pros** - explicit, auditable per-arch artefacts; each interop assembly is stamped with the expected `/machine:` value; catches TLB/SYSKIND drift early (if the C++ build is misconfigured, the `TI2010` error fires at `TlbImp` time rather than at runtime).
+**Cons** - two interop assemblies to version-control and keep in sync; a vcxproj configuration mistake (forgetting `<TargetEnvironment>X64</TargetEnvironment>` on one configuration) surfaces as the `TI2010` error.
+
+### Which option to pick
+
+For most registration-free COM scenarios **Option A is the simpler choice** and is what this repository uses for its sample test harness. Pick Option B when:
+
+- Your IDL contains architecture-dependent signatures (raw `LONG_PTR`, `SIZE_T`, inline pointer arithmetic exposed across COM boundaries).
+- A downstream policy requires per-architecture managed artefacts (for example, a signed-assembly policy that stamps each binary with an explicit machine type).
+- You want build-time detection of TLB/SYSKIND drift in your native project.
+
+In both options the managed `AdaskoTheBeAsT.Interop.COM` library itself stays `AnyCPU` - only the native payloads, manifests, and interop assemblies (when using Option B) are split by arch.
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+## 👤 Credits
+
+Created and maintained by [Adam Pluciński](https://github.com/AdaskoTheBeAsT).
+
+## 🔗 Related Resources
+
+- 📘 [Registration-Free COM Interop](https://learn.microsoft.com/en-us/dotnet/framework/interop/registration-free-com-interop)
+- 📗 [Activation Contexts](https://learn.microsoft.com/en-us/windows/win32/sbscs/activation-contexts)
+- 📙 [Side-by-Side Assemblies](https://learn.microsoft.com/en-us/windows/win32/sbscs/about-side-by-side-assemblies-)
+- 📕 [`TlbImp.exe` reference](https://learn.microsoft.com/en-us/dotnet/framework/tools/tlbimp-exe-type-library-importer)
+- 🧭 [This library's ADR index](docs/adr/README.md)
 
 ---
 
-**Questions or issues?** Open an issue on [GitHub](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/issues)
+**Questions or issues?** 🐛 Open an issue on [GitHub](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/issues) or start a discussion — PRs welcome too. 💬
+
+---
+
+<p align="center">
+  Built for the kind of code that calls into a <strong>20-year-old ActiveX control</strong>, <strong>forgets to register anything</strong>, and <strong>still ships on Monday</strong>. ✨<br/>
+  Made with ❤️ (and a lot of coffee ☕) by <a href="https://github.com/AdaskoTheBeAsT">AdaskoTheBeAsT</a>.
+</p>

@@ -4,6 +4,16 @@
     <TargetFrameworks>net10.0;net9.0;net8.0;net481;net48;net472;net471;net47;net462</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    .NET Framework TFMs (net4.x) are forced to x86 because the .NET Framework
+    test host is natively 32-bit and the original sample NativeCOM.dll ships as x86.
+    .NET Core TFMs (net8/9/10) run under the 64-bit testhost.exe on the GitHub
+    runner, so we leave PlatformTarget unset (AnyCPU -> x64 on a 64-bit host) and
+    route them at the 64-bit NativeCOM.dll + x64 manifest instead.
+  -->
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
 
@@ -11,19 +21,38 @@
     <ProjectReference Include="..\..\..\src\AdaskoTheBeAsT.Interop.COM\AdaskoTheBeAsT.Interop.COM.csproj" />
   </ItemGroup>
 
+  <!--
+    Interop.NativeCOM.dll is MSIL-neutral (tlbimp /machine:Agnostic).
+    One copy loads in both 32-bit and 64-bit processes.
+  -->
   <ItemGroup>
     <Reference Include="Interop.NativeCOM">
       <HintPath>..\..\..\x86\Debug\Interop.NativeCOM.dll</HintPath>
     </Reference>
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- 32-bit native payload + manifest for .NET Framework TFMs -->
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <None Include="..\..\..\x86\Debug\NativeCOM.dll">
       <Link>NativeCOM.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>NativeCOM.dll</TargetPath>
     </None>
     <None Include="..\..\..\manifest\NativeCOM\NativeCOM.manifest">
+      <Link>NativeCOM.manifest</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>NativeCOM.manifest</TargetPath>
+    </None>
+  </ItemGroup>
+
+  <!-- 64-bit native payload + manifest for .NET Core TFMs -->
+  <ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+    <None Include="..\..\..\x64\Debug\NativeCOM.dll">
+      <Link>NativeCOM.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>NativeCOM.dll</TargetPath>
+    </None>
+    <None Include="..\..\..\manifest\NativeCOM\NativeCOM.x64.manifest">
       <Link>NativeCOM.manifest</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>NativeCOM.manifest</TargetPath>
