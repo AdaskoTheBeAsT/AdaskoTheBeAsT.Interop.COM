@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+#if NET8_0_OR_GREATER
+using System.Runtime.Versioning;
+#endif
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
@@ -9,8 +12,30 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// Provides helpers for activating registration-free COM components, executing work inside their activation
 /// contexts, and explicitly managing longer-lived COM object lifetimes on the current thread.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>New code should prefer <see cref="IComExecutor"/> (implemented by <see cref="ComExecutor"/>)</b>, which
+/// exposes the same surface through an injectable, testable interface. This static class is retained for
+/// source-level compatibility with v2.x callers.
+/// </para>
+/// </remarks>
+#if NET8_0_OR_GREATER
+[SupportedOSPlatform("windows")]
+#endif
 public static class Executor
 {
+    /// <summary>
+    /// Expected <c>sizeof(ACTCTXW)</c> on 32-bit Windows, as defined by the Windows SDK.
+    /// Compared against <see cref="Marshal.SizeOf(Type)"/> of the managed <c>ActCtx</c> struct to catch ABI drift.
+    /// </summary>
+    private const int NativeActCtxSizeX86 = 0x20;
+
+    /// <summary>
+    /// Expected <c>sizeof(ACTCTXW)</c> on 64-bit Windows, as defined by the Windows SDK.
+    /// Compared against <see cref="Marshal.SizeOf(Type)"/> of the managed <c>ActCtx</c> struct to catch ABI drift.
+    /// </summary>
+    private const int NativeActCtxSizeX64 = 0x38;
+
     /// <summary>
     /// Activates a single registration-free COM context, executes the supplied callback, pumps pending COM
     /// messages, and then releases the activation context.
@@ -313,9 +338,7 @@ public static class Executor
             var comObject = comObjectHandle.ComObject;
             if (comObject is not null && Marshal.IsComObject(comObject))
             {
-#pragma warning disable CA1416
                 Marshal.FinalReleaseComObject(comObject);
-#pragma warning restore CA1416
             }
 
             NativeMethods.PumpPendingMessages();
@@ -403,10 +426,11 @@ public static class Executor
     {
         var ac = default(ActCtx);
         ac.cbSize = Marshal.SizeOf(typeof(ActCtx));
-        var expected = IntPtr.Size == 4 ? 0x20 : 0x38;
+        var expected = IntPtr.Size == 4 ? NativeActCtxSizeX86 : NativeActCtxSizeX64;
         if (ac.cbSize != expected)
         {
-            throw new ActCtxWrongSizeException("ActCtx.cbSize is wrong");
+            throw new ActCtxWrongSizeException(
+                $"ActCtx.cbSize is wrong (expected {expected} bytes, got {ac.cbSize}).");
         }
 
         ac.lpAssemblyDirectory = comPathDescriptor.ComAssemblyPath;

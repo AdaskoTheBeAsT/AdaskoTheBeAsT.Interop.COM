@@ -353,4 +353,25 @@ MigrationBackup/
 # JetBrains Rider cache/options directory
 .idea/
 
-.sarif/
+################################################
+
+!coverage.settings.xml
+coverage-local.xml
+
+# Phase 0 build log snapshots - summary.md is committed, raw logs are not
+baseline/build.log
+
+.sarif/*
+!.sarif/.gitkeep
+**/[Tt]est[Rr]esult*/
+
+# Keep the top-level x64/Debug and x86/Debug native payloads tracked.
+# We must re-include each parent directory first, then the contents, because
+# git refuses to descend into an ignored directory and won't re-evaluate
+# negations for paths whose parent is excluded.
+!/x64/
+!/x64/Debug/
+!/x64/Debug/**
+!/x86/
+!/x86/Debug/
+!/x86/Debug/**

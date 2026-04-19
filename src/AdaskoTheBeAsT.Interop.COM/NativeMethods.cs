@@ -5,7 +5,7 @@ using System.Security;
 namespace AdaskoTheBeAsT.Interop.COM;
 
 #pragma warning disable S101
-#if NETSTANDARD2_0
+#if !NET8_0_OR_GREATER
 [SuppressUnmanagedCodeSecurity]
 internal static class NativeMethods
 {

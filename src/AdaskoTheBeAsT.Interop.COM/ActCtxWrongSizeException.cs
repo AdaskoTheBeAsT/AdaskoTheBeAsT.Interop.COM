@@ -1,5 +1,5 @@
 using System;
-#if NETSTANDARD2_0
+#if !NET8_0_OR_GREATER
 using System.Runtime.Serialization;
 #endif
 
@@ -44,7 +44,7 @@ public class ActCtxWrongSizeException
     {
     }
 
-#if NETSTANDARD2_0
+#if !NET8_0_OR_GREATER
     /// <summary>
     /// Initializes a new instance of the <see cref="ActCtxWrongSizeException"/> class with serialized data.
     /// </summary>
