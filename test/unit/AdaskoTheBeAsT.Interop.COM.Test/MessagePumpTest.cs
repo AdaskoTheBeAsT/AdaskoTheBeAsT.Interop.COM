@@ -5,7 +5,7 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
-public class MessagePumpTest
+public partial class MessagePumpTest
 {
     private const uint WmNull = 0x0000;
     private const uint PmNoRemove = 0x0000;
@@ -49,6 +49,44 @@ public class MessagePumpTest
         return (comAssemblyPath, manifestPath);
     }
 
+#if NET7_0_OR_GREATER
+    [SuppressUnmanagedCodeSecurity]
+    internal static partial class NativeMethods
+    {
+        [LibraryImport("user32.dll", EntryPoint = "PeekMessageW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool PeekMessage(
+            out Msg lpMsg,
+            IntPtr hWnd,
+            uint wMsgFilterMin,
+            uint wMsgFilterMax,
+            uint wRemoveMsg);
+
+        [LibraryImport("user32.dll", EntryPoint = "PostThreadMessageW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool PostThreadMessage(
+            uint idThread,
+            uint msg,
+            IntPtr wParam,
+            IntPtr lParam);
+
+        [LibraryImport("kernel32.dll")]
+        internal static partial uint GetCurrentThreadId();
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Msg
+        {
+            public readonly IntPtr Hwnd;
+            public readonly uint Message;
+            public readonly UIntPtr WParam;
+            public readonly IntPtr LParam;
+            public readonly uint Time;
+            public readonly int X;
+            public readonly int Y;
+            public readonly uint LPrivate;
+        }
+    }
+#else
     [SuppressUnmanagedCodeSecurity]
     internal static class NativeMethods
     {
@@ -75,14 +113,15 @@ public class MessagePumpTest
         [StructLayout(LayoutKind.Sequential)]
         internal struct Msg
         {
-            public IntPtr Hwnd;
-            public uint Message;
-            public UIntPtr WParam;
-            public IntPtr LParam;
-            public uint Time;
-            public int X;
-            public int Y;
-            public uint LPrivate;
+            public readonly IntPtr Hwnd;
+            public readonly uint Message;
+            public readonly UIntPtr WParam;
+            public readonly IntPtr LParam;
+            public readonly uint Time;
+            public readonly int X;
+            public readonly int Y;
+            public readonly uint LPrivate;
         }
     }
+#endif
 }

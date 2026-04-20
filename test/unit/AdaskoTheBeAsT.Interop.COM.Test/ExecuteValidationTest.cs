@@ -8,19 +8,17 @@ public class ExecuteValidationTest
     [Fact]
     public void ExecuteShouldThrowWhenAssemblyPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Execute(null!, "manifest", () => { }));
+        var act = () => Executor.Execute(null!, "manifest", () => { });
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comAssemblyPath");
     }
 
     [Fact]
     public void ExecuteShouldThrowWhenManifestPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Execute("assembly", null!, () => { }));
+        var act = () => Executor.Execute("assembly", null!, () => { });
 
-        ex.ParamName.Should().Be("manifestPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("manifestPath");
     }
 
     [Theory]
@@ -28,10 +26,9 @@ public class ExecuteValidationTest
     [InlineData("  ")]
     public void ExecuteShouldThrowWhenAssemblyPathIsWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Execute(value, "manifest", () => { }));
+        var act = () => Executor.Execute(value, "manifest", () => { });
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("comAssemblyPath");
     }
 
     [Theory]
@@ -39,46 +36,41 @@ public class ExecuteValidationTest
     [InlineData("  ")]
     public void ExecuteShouldThrowWhenManifestPathIsWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Execute("assembly", value, () => { }));
+        var act = () => Executor.Execute("assembly", value, () => { });
 
-        ex.ParamName.Should().Be("manifestPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("manifestPath");
     }
 
     [Fact]
     public void ExecuteCollectionOverloadShouldThrowWhenDescriptorsIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Execute((ICollection<ComPathDescriptor>)null!, () => { }));
+        var act = () => Executor.Execute((ICollection<ComPathDescriptor>)null!, () => { });
 
-        ex.ParamName.Should().Be("comPathDescriptors");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comPathDescriptors");
     }
 
     [Fact]
     public void ExecuteCollectionOverloadShouldThrowWhenDescriptorsIsEmpty()
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Execute(Array.Empty<ComPathDescriptor>(), () => { }));
+        var act = () => Executor.Execute(Array.Empty<ComPathDescriptor>(), () => { });
 
-        ex.ParamName.Should().Be("comPathDescriptors");
+        act.Should().Throw<ArgumentException>().WithParameterName("comPathDescriptors");
     }
 
     [Fact]
     public void CreateCollectionOverloadShouldThrowWhenDescriptorsIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<object>((ICollection<ComPathDescriptor>)null!, () => new object()));
+        var act = () => Executor.Create<object>((ICollection<ComPathDescriptor>)null!, () => new object());
 
-        ex.ParamName.Should().Be("comPathDescriptors");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comPathDescriptors");
     }
 
     [Fact]
     public void CreateCollectionOverloadShouldThrowWhenDescriptorsIsEmpty()
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Create<object>(Array.Empty<ComPathDescriptor>(), () => new object()));
+        var act = () => Executor.Create<object>(Array.Empty<ComPathDescriptor>(), () => new object());
 
-        ex.ParamName.Should().Be("comPathDescriptors");
+        act.Should().Throw<ArgumentException>().WithParameterName("comPathDescriptors");
     }
 
     [Fact]
@@ -132,28 +124,25 @@ public class ExecuteValidationTest
     [Fact]
     public void CreateShouldThrowWhenAssemblyPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<object>(null!, "manifest", () => new object()));
+        var act = () => Executor.Create<object>(null!, "manifest", () => new object());
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comAssemblyPath");
     }
 
     [Fact]
     public void CreateShouldThrowWhenManifestPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<object>("assembly", null!, () => new object()));
+        var act = () => Executor.Create<object>("assembly", null!, () => new object());
 
-        ex.ParamName.Should().Be("manifestPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("manifestPath");
     }
 
     [Fact]
     public void CreateShouldThrowWhenFactoryIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<object>("assembly", "manifest", null!));
+        var act = () => Executor.Create<object>("assembly", "manifest", null!);
 
-        ex.ParamName.Should().Be("factory");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("factory");
     }
 
     [Theory]
@@ -161,10 +150,9 @@ public class ExecuteValidationTest
     [InlineData("  ")]
     public void CreateShouldThrowWhenAssemblyPathIsWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Create<object>(value, "manifest", () => new object()));
+        var act = () => Executor.Create<object>(value, "manifest", () => new object());
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("comAssemblyPath");
     }
 
     [Theory]
@@ -172,10 +160,9 @@ public class ExecuteValidationTest
     [InlineData("  ")]
     public void CreateShouldThrowWhenManifestPathIsWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => Executor.Create<object>("assembly", value, () => new object()));
+        var act = () => Executor.Create<object>("assembly", value, () => new object());
 
-        ex.ParamName.Should().Be("manifestPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("manifestPath");
     }
 
     [Fact]
@@ -183,10 +170,9 @@ public class ExecuteValidationTest
     {
         var descriptors = new[] { new ComPathDescriptor("dll", "manifest") };
 
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<object>(descriptors, null!));
+        var act = () => Executor.Create<object>(descriptors, null!);
 
-        ex.ParamName.Should().Be("factory");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("factory");
     }
 
     [Fact]
@@ -223,10 +209,9 @@ public class ExecuteValidationTest
     [Fact]
     public void FreeShouldThrowWhenHandleIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => Executor.Free<object>(null!));
+        var act = () => Executor.Free<object>(null!);
 
-        ex.ParamName.Should().Be("comObjectHandle");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comObjectHandle");
     }
 
     [Fact]

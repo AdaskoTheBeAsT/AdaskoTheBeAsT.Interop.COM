@@ -9,7 +9,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// </summary>
 /// <remarks>
 /// Subscribe by provider name <c>"AdaskoTheBeAsT.Interop.COM"</c>, for example:
-/// <code>dotnet-trace collect --providers AdaskoTheBeAsT.Interop.COM --process-id &lt;pid&gt;</code>.
+/// <c>dotnet-trace collect --providers AdaskoTheBeAsT.Interop.COM --process-id &lt;pid&gt;</c>.
 /// </remarks>
 [EventSource(Name = ProviderName)]
 internal sealed class ComInteropEventSource
@@ -56,7 +56,7 @@ internal sealed class ComInteropEventSource
     /// <summary>
     /// Emitted when <c>ComObjectHandle&lt;T&gt;.Dispose()</c> invokes <c>Executor.Free</c> and the
     /// release returns a non-success <c>Result</c> (native deactivation, release, or COM final
-    /// release failed). Callers that consume the handle through <c>using</c> would otherwise miss
+    /// release failed). Callers that consume the handle through <see langword="using"/> would otherwise miss
     /// the failure entirely, because <c>Dispose</c> cannot throw without violating the pattern.
     /// </summary>
     /// <param name="typeName">Short name of the generic argument <c>T</c>.</param>

@@ -11,7 +11,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// Represents a COM object together with the activation-context state that keeps it alive after
 /// <see cref="Executor.Create{T}(string,string,Func{T})"/> or
 /// <see cref="Executor.Create{T}(ICollection{ComPathDescriptor},Func{T})"/> returns.
-/// Release it through <see cref="Dispose"/> (preferred, e.g. with a <c>using</c> statement) or
+/// Release it through <see cref="Dispose"/> (preferred, e.g. with a <see langword="using"/> statement) or
 /// <see cref="Executor.Free{T}(ComObjectHandle{T})"/>.
 /// </summary>
 /// <typeparam name="T">The COM object type.</typeparam>

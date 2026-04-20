@@ -58,7 +58,8 @@ public class ComInteropEventSourceTest
         matches.Should().ContainSingle();
         var evt = matches[0];
         evt.Level.Should().Be(EventLevel.Error);
-        (evt.Payload![1] as string).Should().Be("native release failed");
+        var errorMessage = evt.Payload![1] as string;
+        errorMessage.Should().Be("native release failed");
     }
 
     [Fact]
@@ -80,7 +81,7 @@ public class ComInteropEventSourceTest
             EnableEvents(target, EventLevel.Verbose);
         }
 
-        public List<EventWrittenEventArgs> Events { get; } = new List<EventWrittenEventArgs>();
+        public List<EventWrittenEventArgs> Events { get; } = [];
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {

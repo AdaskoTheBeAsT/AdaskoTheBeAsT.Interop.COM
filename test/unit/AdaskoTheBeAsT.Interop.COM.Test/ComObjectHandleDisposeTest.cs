@@ -16,28 +16,25 @@ public class ComObjectHandleDisposeTest
     [Fact]
     public void CtorShouldThrowWhenComObjectIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => new ComObjectHandle<object>(null!, new List<IntPtr>(), new List<IntPtr>()));
+        var act = () => new ComObjectHandle<object>(null!, [], []);
 
-        ex.ParamName.Should().Be("comObject");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comObject");
     }
 
     [Fact]
     public void CtorShouldThrowWhenActivationContextHandlesIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => new ComObjectHandle<object>(new object(), null!, new List<IntPtr>()));
+        var act = () => new ComObjectHandle<object>(new object(), null!, []);
 
-        ex.ParamName.Should().Be("activationContextHandles");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("activationContextHandles");
     }
 
     [Fact]
     public void CtorShouldThrowWhenActivationCookiesIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => new ComObjectHandle<object>(new object(), new List<IntPtr>(), null!));
+        var act = () => new ComObjectHandle<object>(new object(), [], null!);
 
-        ex.ParamName.Should().Be("activationCookies");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("activationCookies");
     }
 #pragma warning restore IDISP005
 
@@ -66,10 +63,7 @@ public class ComObjectHandleDisposeTest
         }
         finally
         {
-            foreach (var listener in original)
-            {
-                Trace.Listeners.Add(listener);
-            }
+            Trace.Listeners.AddRange(original);
         }
     }
 #pragma warning restore S1215
@@ -146,8 +140,8 @@ public class ComObjectHandleDisposeTest
         // Bypass Executor.Create — no real native resources are allocated, so the finalizer is safe to run.
         _ = new ComObjectHandle<string>(
             "fake-com-object",
-            new List<IntPtr>(),
-            new List<IntPtr>());
+            [],
+            []);
     }
 #pragma warning restore CA2000
 #pragma warning restore IDISP004
@@ -175,7 +169,7 @@ public class ComObjectHandleDisposeTest
             EnableEvents(target, EventLevel.Verbose);
         }
 
-        public List<EventWrittenEventArgs> Events { get; } = new List<EventWrittenEventArgs>();
+        public List<EventWrittenEventArgs> Events { get; } = [];
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {

@@ -268,12 +268,8 @@ public static class Executor
             try
             {
 #pragma warning disable CC0031
-                var comObject = factory();
+                var comObject = factory() ?? throw new InvalidOperationException("The COM factory returned null.");
 #pragma warning restore CC0031
-                if (comObject is null)
-                {
-                    throw new InvalidOperationException("The COM factory returned null.");
-                }
 
                 // Pump COM messages in STA apartment
                 NativeMethods.PumpPendingMessages();
@@ -385,7 +381,7 @@ public static class Executor
         return hActCtxs;
     }
 
-    private static List<IntPtr> ActivateContexts(IReadOnlyList<IntPtr> activationContextHandles)
+    private static List<IntPtr> ActivateContexts(List<IntPtr> activationContextHandles)
     {
         var cookies = new List<IntPtr>(activationContextHandles.Count);
 
@@ -425,12 +421,16 @@ public static class Executor
     private static ActCtx PrepareContext(ComPathDescriptor comPathDescriptor)
     {
         var ac = default(ActCtx);
-        ac.cbSize = Marshal.SizeOf(typeof(ActCtx));
+        ac.cbSize = Marshal.SizeOf<ActCtx>();
         var expected = IntPtr.Size == 4 ? NativeActCtxSizeX86 : NativeActCtxSizeX64;
         if (ac.cbSize != expected)
         {
             throw new ActCtxWrongSizeException(
-                $"ActCtx.cbSize is wrong (expected {expected} bytes, got {ac.cbSize}).");
+                string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "ActCtx.cbSize is wrong (expected {0} bytes, got {1}).",
+                    expected,
+                    ac.cbSize));
         }
 
         ac.lpAssemblyDirectory = comPathDescriptor.ComAssemblyPath;

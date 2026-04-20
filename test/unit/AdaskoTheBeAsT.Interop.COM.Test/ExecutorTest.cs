@@ -10,8 +10,8 @@ public class ExecutorTest
     {
         // Arrange
         var (comAssemblyPath, manifestPath) = GetPaths();
-        var str1 = "Hello";
-        var str2 = "World!";
+        const string str1 = "Hello";
+        const string str2 = "World!";
         string? output = null;
         Action action = () =>
         {
@@ -80,8 +80,8 @@ public class ExecutorTest
         creation.Exception.Should().BeNull();
         creation.Value.Should().NotBeNull();
         creation.Value!.IsReleased.Should().BeFalse();
-        creation.Value.ActivationContextHandles.Should().HaveCount(1);
-        creation.Value.ActivationCookies.Should().HaveCount(1);
+        creation.Value.ActivationContextHandles.Should().ContainSingle();
+        creation.Value.ActivationCookies.Should().ContainSingle();
         creation.Value.ComObject.Should().NotBeNull();
         creation.Value.ComObject!.ConcatStrings("Foo", "Bar").Should().Be("FooBar");
 
@@ -141,22 +141,20 @@ public class ExecutorTest
         var (comAssemblyPath, manifestPath) = GetPaths();
 
         // Act
-        var exception = Assert.Throws<ArgumentNullException>(
-            () => Executor.Create<NativeCOM.StringConcatenatorClass>(comAssemblyPath, manifestPath, null!));
+        var act = () => Executor.Create<NativeCOM.StringConcatenatorClass>(comAssemblyPath, manifestPath, null!);
 
         // Assert
-        exception.ParamName.Should().Be("factory");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("factory");
     }
 
     [Fact]
     public void FreeShouldThrowWhenHandleIsNull()
     {
         // Act
-        var exception = Assert.Throws<ArgumentNullException>(
-            () => Executor.Free<NativeCOM.StringConcatenatorClass>(null!));
+        var act = () => Executor.Free<NativeCOM.StringConcatenatorClass>(null!);
 
         // Assert
-        exception.ParamName.Should().Be("comObjectHandle");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comObjectHandle");
     }
 
     private static (string ComAssemblyPath, string ManifestPath) GetPaths()
