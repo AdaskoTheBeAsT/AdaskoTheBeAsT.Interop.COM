@@ -84,8 +84,10 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ActivateActCtx(IntPtr hActCtx, out IntPtr lpCookie);
 
+#pragma warning disable SYSLIB1054
     [DllImport("Kernel32.dll", EntryPoint = "CreateActCtxW", SetLastError = true)]
     internal static extern IntPtr CreateActCtx(ref ActCtx pActCtx);
+#pragma warning restore SYSLIB1054
 
     [LibraryImport("Kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

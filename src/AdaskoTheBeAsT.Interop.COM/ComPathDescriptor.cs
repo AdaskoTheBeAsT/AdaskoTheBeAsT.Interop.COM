@@ -19,15 +19,8 @@ public sealed class ComPathDescriptor
         string comAssemblyPath,
         string comManifestPath)
     {
-        if (comAssemblyPath is null)
-        {
-            throw new ArgumentNullException(nameof(comAssemblyPath));
-        }
-
-        if (comManifestPath is null)
-        {
-            throw new ArgumentNullException(nameof(comManifestPath));
-        }
+        ThrowHelper.ThrowIfNull(comAssemblyPath, nameof(comAssemblyPath));
+        ThrowHelper.ThrowIfNull(comManifestPath, nameof(comManifestPath));
 
         if (string.IsNullOrWhiteSpace(comAssemblyPath))
         {

@@ -56,15 +56,8 @@ public static class Executor
         string manifestPath,
         Action action)
     {
-        if (comAssemblyPath is null)
-        {
-            throw new ArgumentNullException(nameof(comAssemblyPath));
-        }
-
-        if (manifestPath is null)
-        {
-            throw new ArgumentNullException(nameof(manifestPath));
-        }
+        ThrowHelper.ThrowIfNull(comAssemblyPath, nameof(comAssemblyPath));
+        ThrowHelper.ThrowIfNull(manifestPath, nameof(manifestPath));
 
         if (string.IsNullOrWhiteSpace(comAssemblyPath))
         {
@@ -196,20 +189,9 @@ public static class Executor
         Func<T> factory)
         where T : class
     {
-        if (comAssemblyPath is null)
-        {
-            throw new ArgumentNullException(nameof(comAssemblyPath));
-        }
-
-        if (manifestPath is null)
-        {
-            throw new ArgumentNullException(nameof(manifestPath));
-        }
-
-        if (factory is null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ThrowHelper.ThrowIfNull(comAssemblyPath, nameof(comAssemblyPath));
+        ThrowHelper.ThrowIfNull(manifestPath, nameof(manifestPath));
+        ThrowHelper.ThrowIfNull(factory, nameof(factory));
 
         if (string.IsNullOrWhiteSpace(comAssemblyPath))
         {
@@ -251,11 +233,7 @@ public static class Executor
         where T : class
     {
         ValidateComPathDescriptors(comPathDescriptors);
-
-        if (factory is null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ThrowHelper.ThrowIfNull(factory, nameof(factory));
 
         var hActCtxs = CreateActivationContexts(comPathDescriptors);
 
@@ -318,10 +296,7 @@ public static class Executor
     public static Result Free<T>(ComObjectHandle<T> comObjectHandle)
         where T : class
     {
-        if (comObjectHandle is null)
-        {
-            throw new ArgumentNullException(nameof(comObjectHandle));
-        }
+        ThrowHelper.ThrowIfNull(comObjectHandle, nameof(comObjectHandle));
 
         if (comObjectHandle.IsReleased)
         {
@@ -356,10 +331,7 @@ public static class Executor
 
     private static void ValidateComPathDescriptors(ICollection<ComPathDescriptor> comPathDescriptors)
     {
-        if (comPathDescriptors is null)
-        {
-            throw new ArgumentNullException(nameof(comPathDescriptors));
-        }
+        ThrowHelper.ThrowIfNull(comPathDescriptors, nameof(comPathDescriptors));
 
         if (comPathDescriptors.Count == 0)
         {

@@ -32,20 +32,9 @@ public sealed class ComObjectHandle<T>
         IReadOnlyList<IntPtr> activationContextHandles,
         IReadOnlyList<IntPtr> activationCookies)
     {
-        if (comObject is null)
-        {
-            throw new ArgumentNullException(nameof(comObject));
-        }
-
-        if (activationContextHandles is null)
-        {
-            throw new ArgumentNullException(nameof(activationContextHandles));
-        }
-
-        if (activationCookies is null)
-        {
-            throw new ArgumentNullException(nameof(activationCookies));
-        }
+        ThrowHelper.ThrowIfNull(comObject, nameof(comObject));
+        ThrowHelper.ThrowIfNull(activationContextHandles, nameof(activationContextHandles));
+        ThrowHelper.ThrowIfNull(activationCookies, nameof(activationCookies));
 
         ComObject = comObject;
         ActivationContextHandles = activationContextHandles;
