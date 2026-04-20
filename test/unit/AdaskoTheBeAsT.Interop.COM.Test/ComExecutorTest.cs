@@ -17,7 +17,7 @@ public class ComExecutorTest
     public void ExecuteShouldDelegateToStaticExecutor()
     {
         var (comAssemblyPath, manifestPath) = GetPaths();
-        IComExecutor sut = new ComExecutor();
+        var sut = new ComExecutor();
         string? output = null;
 
         var result = sut.Execute(comAssemblyPath, manifestPath, () =>
@@ -34,7 +34,7 @@ public class ComExecutorTest
     public void CreateAndFreeShouldDelegateToStaticExecutor()
     {
         var (comAssemblyPath, manifestPath) = GetPaths();
-        IComExecutor sut = new ComExecutor();
+        var sut = new ComExecutor();
 
         var creation = sut.Create(
             comAssemblyPath,
@@ -55,7 +55,7 @@ public class ComExecutorTest
     {
         var (comAssemblyPath, manifestPath) = GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
-        IComExecutor sut = new ComExecutor();
+        var sut = new ComExecutor();
         string? output = null;
 
         var result = sut.Execute(descriptors, () =>
@@ -73,7 +73,7 @@ public class ComExecutorTest
     {
         var (comAssemblyPath, manifestPath) = GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
-        IComExecutor sut = new ComExecutor();
+        var sut = new ComExecutor();
 
         var creation = sut.Create(
             descriptors,

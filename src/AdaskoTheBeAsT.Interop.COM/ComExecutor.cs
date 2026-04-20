@@ -14,7 +14,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// <para>
 /// This is the preferred entry point in v3.0+. Depend on <see cref="IComExecutor"/> in your classes and
 /// register <see cref="ComExecutor"/> once in the composition root:
-/// <code>services.AddSingleton&lt;IComExecutor, ComExecutor&gt;();</code>
+/// <c>services.AddSingleton&lt;IComExecutor, ComExecutor&gt;();</c>.
 /// </para>
 /// <para>
 /// The static <see cref="Executor"/> class remains available for backward compatibility with v2.x callers.

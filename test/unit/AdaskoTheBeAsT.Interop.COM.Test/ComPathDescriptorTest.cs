@@ -20,19 +20,17 @@ public class ComPathDescriptorTest
     [Fact]
     public void ConstructorShouldThrowWhenAssemblyPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => new ComPathDescriptor(null!, @"C:\temp\MyCom.manifest"));
+        var act = () => new ComPathDescriptor(null!, @"C:\temp\MyCom.manifest");
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comAssemblyPath");
     }
 
     [Fact]
     public void ConstructorShouldThrowWhenManifestPathIsNull()
     {
-        var ex = Assert.Throws<ArgumentNullException>(
-            () => new ComPathDescriptor(@"C:\temp\MyCom.dll", null!));
+        var act = () => new ComPathDescriptor(@"C:\temp\MyCom.dll", null!);
 
-        ex.ParamName.Should().Be("comManifestPath");
+        act.Should().Throw<ArgumentNullException>().WithParameterName("comManifestPath");
     }
 
     [Theory]
@@ -41,10 +39,9 @@ public class ComPathDescriptorTest
     [InlineData("\t")]
     public void ConstructorShouldThrowWhenAssemblyPathIsEmptyOrWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => new ComPathDescriptor(value, @"C:\temp\MyCom.manifest"));
+        var act = () => new ComPathDescriptor(value, @"C:\temp\MyCom.manifest");
 
-        ex.ParamName.Should().Be("comAssemblyPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("comAssemblyPath");
     }
 
     [Theory]
@@ -53,9 +50,8 @@ public class ComPathDescriptorTest
     [InlineData("\t")]
     public void ConstructorShouldThrowWhenManifestPathIsEmptyOrWhitespace(string value)
     {
-        var ex = Assert.Throws<ArgumentException>(
-            () => new ComPathDescriptor(@"C:\temp\MyCom.dll", value));
+        var act = () => new ComPathDescriptor(@"C:\temp\MyCom.dll", value);
 
-        ex.ParamName.Should().Be("comManifestPath");
+        act.Should().Throw<ArgumentException>().WithParameterName("comManifestPath");
     }
 }
