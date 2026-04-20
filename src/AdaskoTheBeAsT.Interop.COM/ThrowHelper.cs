@@ -5,7 +5,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 
 /// <summary>
 /// Internal argument-validation helper. Uses <c>ArgumentNullException.ThrowIfNull</c> when available
-/// (net6.0+) and falls back to the classic <c>if-null/throw</c> pattern on older TFMs (netstandard2.0,
+/// (net8.0+) and falls back to the classic <c>if-null/throw</c> pattern on older TFMs (netstandard2.0,
 /// .NET Framework).
 /// </summary>
 internal static class ThrowHelper
@@ -16,17 +16,17 @@ internal static class ThrowHelper
 #pragma warning restore S3236
         where T : class
     {
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
 #pragma warning disable S3236
         ArgumentNullException.ThrowIfNull(argument, paramName);
 #pragma warning restore S3236
 #else
-#pragma warning disable CA1510 // ArgumentNullException.ThrowIfNull is not available on this TFM
+#pragma warning disable CA1510, RCS1256
         if (argument is null)
         {
             throw new ArgumentNullException(paramName);
         }
-#pragma warning restore CA1510
+#pragma warning restore CA1510, RCS1256
 #endif
     }
 }
