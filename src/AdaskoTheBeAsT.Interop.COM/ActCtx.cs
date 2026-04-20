@@ -5,6 +5,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 
 #pragma warning disable SA1307 // Accessible fields should begin with upper-case letter
 #pragma warning disable SA1121 // Use built-in type alias
+#pragma warning disable CC0074 // Make field readonly
 /// <summary>
 /// The ACTCTX structure is used by the CreateActCtx function to create the activation context.
 /// </summary>
@@ -126,5 +127,6 @@ internal struct ActCtx
     /// </summary>
     internal IntPtr hModule;
 }
+#pragma warning restore CC0074 // Make field readonly
 #pragma warning restore SA1121 // Use built-in type alias
 #pragma warning restore SA1307 // Accessible fields should begin with upper-case letter
