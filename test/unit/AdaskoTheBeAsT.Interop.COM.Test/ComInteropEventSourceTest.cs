@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics.Tracing;
 using AwesomeAssertions;
 using Xunit;
@@ -26,8 +26,9 @@ public class ComInteropEventSourceTest
 
         ComInteropEventSource.Log.HandleLeaked(sentinel);
 
-        var matches = listener.Events
-            .FindAll(e => e.EventId == ComInteropEventSource.HandleLeakedEventId
+        var matches = Array.FindAll(
+            listener.Events,
+            e => e.EventId == ComInteropEventSource.HandleLeakedEventId
                 && e.Payload is { Count: > 0 }
                 && string.Equals(e.Payload[0] as string, sentinel, System.StringComparison.Ordinal));
         matches.Should().ContainSingle();
@@ -51,8 +52,9 @@ public class ComInteropEventSourceTest
 
         ComInteropEventSource.Log.HandleReleaseFailed(sentinel, "native release failed");
 
-        var matches = listener.Events
-            .FindAll(e => e.EventId == ComInteropEventSource.HandleReleaseFailedEventId
+        var matches = Array.FindAll(
+            listener.Events,
+            e => e.EventId == ComInteropEventSource.HandleReleaseFailedEventId
                 && e.Payload is { Count: > 1 }
                 && string.Equals(e.Payload[0] as string, sentinel, System.StringComparison.Ordinal));
         matches.Should().ContainSingle();
@@ -70,10 +72,32 @@ public class ComInteropEventSourceTest
         act.Should().NotThrow();
     }
 
+    [Fact]
+    public void CaptureShouldRetainAllEventsFromConcurrentWriters()
+    {
+        const string sentinel = "Sentinel_ConcurrentWriters";
+        const int count = 256;
+        using var listener = new CapturingEventListener(ComInteropEventSource.Log);
+
+        Parallel.For(0, count, _ =>
+        {
+            ComInteropEventSource.Log.HandleLeaked(sentinel);
+            listener.Events.Should().NotBeEmpty();
+        });
+
+        var matches = Array.FindAll(
+            listener.Events,
+            e => e.EventId == ComInteropEventSource.HandleLeakedEventId
+                && e.Payload is { Count: > 0 }
+                && string.Equals(e.Payload[0] as string, sentinel, StringComparison.Ordinal));
+        matches.Should().HaveCount(count);
+    }
+
     private sealed class CapturingEventListener
         : EventListener
     {
         private readonly EventSource _target;
+        private readonly ConcurrentQueue<EventWrittenEventArgs> _events = new();
 
         public CapturingEventListener(EventSource target)
         {
@@ -81,13 +105,13 @@ public class ComInteropEventSourceTest
             EnableEvents(target, EventLevel.Verbose);
         }
 
-        public List<EventWrittenEventArgs> Events { get; } = [];
+        public EventWrittenEventArgs[] Events => _events.ToArray();
 
         protected override void OnEventWritten(EventWrittenEventArgs eventData)
         {
             if (ReferenceEquals(eventData.EventSource, _target))
             {
-                Events.Add(eventData);
+                _events.Enqueue(eventData);
             }
         }
     }

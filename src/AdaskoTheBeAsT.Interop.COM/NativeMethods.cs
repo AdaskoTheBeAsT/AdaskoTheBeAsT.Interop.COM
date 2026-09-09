@@ -14,6 +14,9 @@ internal static class NativeMethods
     // Pump Windows messages for STA COM callbacks
     internal const uint PM_REMOVE = 0x0001;
 
+    internal const int MaxMessagesPerPump = 256;
+    private const uint WmQuit = 0x0012;
+
     [DllImport("Kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool ActivateActCtx(IntPtr hActCtx, out IntPtr lpCookie);
@@ -26,9 +29,17 @@ internal static class NativeMethods
     internal static extern bool DeactivateActCtx(int dwFlags, IntPtr lpCookie);
 
     [DllImport("Kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetCurrentActCtx(out IntPtr hActCtx);
+
+    [DllImport("Kernel32.dll")]
+    internal static extern uint GetCurrentThreadId();
+
+    [DllImport("Kernel32.dll", SetLastError = true)]
     internal static extern void ReleaseActCtx(IntPtr hActCtx);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", EntryPoint = "PeekMessageW", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool PeekMessage(
         out MSG lpMsg,
         IntPtr hWnd,
@@ -39,13 +50,22 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern bool TranslateMessage([In] ref MSG lpMsg);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", EntryPoint = "DispatchMessageW", ExactSpelling = true)]
     internal static extern IntPtr DispatchMessage([In] ref MSG lpMsg);
+
+    [DllImport("user32.dll")]
+    internal static extern void PostQuitMessage(int exitCode);
 
     internal static void PumpPendingMessages()
     {
-        while (PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE))
+        for (int count = 0; count < MaxMessagesPerPump && PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
         {
+            if (msg.message == WmQuit)
+            {
+                PostQuitMessage(unchecked((int)msg.wParam.ToUInt64()));
+                break;
+            }
+
             TranslateMessage(ref msg);
             DispatchMessage(ref msg);
         }
@@ -80,6 +100,9 @@ internal static partial class NativeMethods
     // Pump Windows messages for STA COM callbacks
     internal const uint PM_REMOVE = 0x0001;
 
+    internal const int MaxMessagesPerPump = 256;
+    private const uint WmQuit = 0x0012;
+
     [LibraryImport("Kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ActivateActCtx(IntPtr hActCtx, out IntPtr lpCookie);
@@ -92,6 +115,13 @@ internal static partial class NativeMethods
     [LibraryImport("Kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool DeactivateActCtx(int dwFlags, IntPtr lpCookie);
+
+    [LibraryImport("Kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetCurrentActCtx(out IntPtr hActCtx);
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial uint GetCurrentThreadId();
 
     [LibraryImport("Kernel32.dll", SetLastError = true)]
     internal static partial void ReleaseActCtx(IntPtr hActCtx);
@@ -112,10 +142,19 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", EntryPoint = "DispatchMessageW")]
     internal static partial IntPtr DispatchMessage(ref MSG lpMsg);
 
+    [LibraryImport("user32.dll")]
+    internal static partial void PostQuitMessage(int exitCode);
+
     internal static void PumpPendingMessages()
     {
-        while (PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE))
+        for (int count = 0; count < MaxMessagesPerPump && PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
         {
+            if (msg.message == WmQuit)
+            {
+                PostQuitMessage(unchecked((int)msg.wParam.ToUInt64()));
+                break;
+            }
+
             TranslateMessage(ref msg);
             DispatchMessage(ref msg);
         }

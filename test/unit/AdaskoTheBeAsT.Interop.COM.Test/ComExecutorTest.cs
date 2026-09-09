@@ -44,10 +44,10 @@ public class ComExecutorTest
         creation.Success.Should().BeTrue();
         creation.Value.Should().NotBeNull();
 
-        var release = sut.Free(creation.Value!);
+        var release = sut.Free(creation.Value);
 
         release.Success.Should().BeTrue();
-        creation.Value!.IsReleased.Should().BeTrue();
+        creation.Value.IsReleased.Should().BeTrue();
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class ComExecutorTest
         creation.Success.Should().BeTrue();
         creation.Value.Should().NotBeNull();
 
-        sut.Free(creation.Value!).Success.Should().BeTrue();
+        sut.Free(creation.Value).Success.Should().BeTrue();
     }
 
     private static (string ComAssemblyPath, string ManifestPath) GetPaths()

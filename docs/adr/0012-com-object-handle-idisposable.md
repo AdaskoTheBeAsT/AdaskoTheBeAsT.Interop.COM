@@ -1,6 +1,6 @@
 # ADR-0012: Make `ComObjectHandle<T>` Implement `IDisposable`
 
-- Status: Accepted
+- Status: Accepted — cleanup and finalizer-suppression details superseded by [ADR-0019](0019-safe-activation-context-cleanup.md)
 - Date: 2026-04-19
 - Deciders: @AdaskoTheBeAsT
 - Release: v3.0.0

@@ -5,10 +5,11 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryType>github</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <Description>A lightweight .NET library for **registration-free COM interop** that enables you to use COM objects without registering them in the Windows registry. Execute COM methods in a Single Threaded Apartment (STA) with proper activation context management.</Description>
+    <Description>A lightweight .NET library for registration-free COM interop without Windows registry registration. Execute COM methods on the calling thread with activation context management and bounded message pumping. Callers provide an STA thread when required by their COM component.</Description>
     <Authors>Adam "AdaskoTheBeAsT" Pluciński</Authors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
@@ -30,7 +31,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="$(ProjectName).Test" />
+    <InternalsVisibleTo Include="$(MSBuildProjectName).Test" />
   </ItemGroup>
 
   <ItemGroup>

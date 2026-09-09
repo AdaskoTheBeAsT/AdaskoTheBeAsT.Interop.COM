@@ -46,8 +46,8 @@ public class ExecutorTest
         creation.Success.Should().BeTrue();
         creation.Exception.Should().BeNull();
         creation.Value.Should().NotBeNull();
-        creation.Value!.ComObject.Should().NotBeNull();
-        creation.Value.ComObject!.ConcatStrings("Hello", "World!").Should().Be("HelloWorld!");
+        creation.Value.ComObject.Should().NotBeNull();
+        creation.Value.ComObject.ConcatStrings("Hello", "World!").Should().Be("HelloWorld!");
 
         var release = Executor.Free(creation.Value);
 
@@ -79,11 +79,11 @@ public class ExecutorTest
         creation.Success.Should().BeTrue();
         creation.Exception.Should().BeNull();
         creation.Value.Should().NotBeNull();
-        creation.Value!.IsReleased.Should().BeFalse();
+        creation.Value.IsReleased.Should().BeFalse();
         creation.Value.ActivationContextHandles.Should().ContainSingle();
         creation.Value.ActivationCookies.Should().ContainSingle();
         creation.Value.ComObject.Should().NotBeNull();
-        creation.Value.ComObject!.ConcatStrings("Foo", "Bar").Should().Be("FooBar");
+        creation.Value.ComObject.ConcatStrings("Foo", "Bar").Should().Be("FooBar");
 
         var release = Executor.Free(creation.Value);
 
@@ -109,7 +109,7 @@ public class ExecutorTest
         creation.Success.Should().BeFalse();
         creation.Value.Should().BeNull();
         creation.Exception.Should().BeOfType<InvalidOperationException>();
-        creation.Exception!.Message.Should().Be("The COM factory returned null.");
+        creation.Exception.Message.Should().Be("The COM factory returned null.");
     }
 
     [Fact]

@@ -9,7 +9,7 @@
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
 ![Warnings](https://img.shields.io/badge/warnings--as--errors-on-green)
 ![Deterministic](https://img.shields.io/badge/deterministic%20build-on-blue)
-![Tests](https://img.shields.io/badge/tests-567%20across%209%20TFMs-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1206%20across%209%20TFMs-brightgreen)
 ![Coverage](https://img.shields.io/badge/local%20coverage-92.8%25-brightgreen)
 
 ### 🔬 Code quality — SonarCloud
@@ -52,7 +52,7 @@ executor.Execute(comDllPath, manifestPath, () =>
 });
 ```
 
-The activation context is created from your manifest, pushed on the current thread, your `Action` runs in a real STA with message pumping, and everything is torn down cleanly even when you throw. ✨
+The activation context is created from your manifest and pushed on the current thread. Your `Action` runs synchronously on that thread, followed on success by an optional bounded message pump. Context cleanup also runs when the action throws. The library does **not** initialize COM, create a thread, or change its apartment state. Provide an STA thread when your component requires one.
 
 ---
 
@@ -60,7 +60,7 @@ The activation context is created from your manifest, pushed on the current thre
 
 - 🚀 **No COM registration ever.** `regsvr32` stays uninstalled. No admin rights. Your build server thanks you.
 - 📜 **Manifest-based side-by-side activation.** Standard Windows SxS — battle-tested since Windows XP SP2, used by every in-box OS component.
-- 🧵 **Real STA, real message pump.** `CreateActCtx` → `ActivateActCtx` → `CoInitialize(STA)` → run work → `PeekMessage`/`TranslateMessage`/`DispatchMessage` pump → `DeactivateActCtx` → `ReleaseActCtx`. You just write the inner `Action`. ([ADR-0011](docs/adr/0011-pump-sta-messages-after-com-calls.md))
+- 🧵 **Caller-owned apartment, bounded message pump.** `CreateActCtx` → `ActivateActCtx` → run work on the calling thread → `PeekMessage`/`TranslateMessage`/`DispatchMessage` pump → `DeactivateActCtx` → `ReleaseActCtx`. Each pump processes at most 256 messages, preserves `WM_QUIT` and its exit code, and leaves remaining messages for the host loop. A message handler itself can still block. ([ADR-0019](docs/adr/0019-safe-activation-context-cleanup.md))
 - 🧹 **`ComObjectHandle<T>` is `IDisposable`.** `using var handle = creation.Value!;` — that's your whole cleanup story. Forget to dispose? A diagnostic-only finalizer emits a `HandleLeaked` event on an `EventSource` so you find the bug instead of crashing later. ([ADR-0012](docs/adr/0012-com-object-handle-idisposable.md), [ADR-0018](docs/adr/0018-eventsource-for-leaked-handles.md))
 - 🧩 **Drop-in DI.** `services.AddSingleton<IComExecutor, ComExecutor>();` and inject `IComExecutor` anywhere. Unit tests replace it with a `Mock<IComExecutor>` in one line. ([ADR-0013](docs/adr/0013-icomexecutor-abstraction.md))
 - 🖥️ **10 TFMs, all green.** `net10.0`, `net9.0`, `net8.0`, `net481`, `net48`, `net472`, `net471`, `net47`, `net462`, `netstandard2.0` — `TreatWarningsAsErrors=true` on every cell. ([ADR-0007](docs/adr/0007-multi-target-frameworks.md))
@@ -68,8 +68,8 @@ The activation context is created from your manifest, pushed on the current thre
 - 🪟 **`[SupportedOSPlatform("windows")]` on the public surface.** Static analysis catches cross-platform call-sites at compile time on TFMs that understand the attribute. ([ADR-0014](docs/adr/0014-supported-os-platform-windows.md))
 - 🔭 **Built-in observability.** `EventSource` named `AdaskoTheBeAsT.Interop.COM` emits `HandleLeaked` (Event ID `1`). Subscribe with `dotnet-trace --providers AdaskoTheBeAsT.Interop.COM` or an in-process `EventListener`.
 - ✏️ **Source Link + snupkg.** F11 steps into this library from your debugger. No guessing which version is deployed.
-- 📚 **19 ADRs** documenting every meaningful design choice.
-- 🧪 **567 test invocations** (63 tests × 9 TFMs) plus **92.8 % local line coverage** of the shipped assembly. 9 of 10 source files at 100 %.
+- 📚 **20 ADRs** documenting every meaningful design choice.
+- 🧪 **1,206 test invocations** (134 tests × 9 TFMs) covering activation cleanup and injected native failures, thread affinity, native destruction and callbacks, concurrent diagnostics, ownership, Unicode delivery, and message-pump policies. Additional runs exercise modern .NET x86 and .NET Framework x64.
 
 ---
 
@@ -156,6 +156,30 @@ public sealed class MyComRunner
 }
 ```
 
+### Let the host own message processing
+
+Automatic pumping remains enabled by default for compatibility. Disable it when an existing UI loop or
+STA scheduler owns message processing:
+
+```csharp
+services.AddSingleton<IComExecutor>(_ => new ComExecutor(pumpPendingMessages: false));
+```
+
+The built-in pump uses Unicode Win32 APIs on every target, but it is not a host message loop:
+custom `PostThreadMessage` messages have no window procedure and can be consumed without delivery.
+It also bypasses accelerator translation, dialog preprocessing, and framework-specific message filters.
+Disabling it prevents the library's explicit pump; COM itself can still pump during synchronous calls.
+The host remains responsible for any message processing the component needs.
+
+The policy is immutable per executor. Each created handle retains its creation policy for `Free` and
+`Dispose`, even when released through the static API or a different executor. Existing `IComExecutor`
+implementations need no changes. Static callers can use the new overloads:
+
+```csharp
+var result = Executor.Execute(dll, manifest, Work, pumpPendingMessages: false);
+var creation = Executor.Create(dll, manifest, CreateComObject, pumpPendingMessages: false);
+```
+
 ### Basic Usage (static, legacy — v2.x compatible)
 
 Use this form only if you have existing code that depends on the static entry point; no new code should do this.
@@ -208,22 +232,42 @@ public sealed class ComStringProcessor
 
 #### Unit-testing `ComStringProcessor`
 
-Because `IComExecutor` is an interface, the class above is trivial to test without any real COM on the box:
+Mocking `IComExecutor` lets you test invocation and failure handling without COM. Do not invoke the
+captured callback in such a test: it constructs a real COM object. For example, using Moq and xUnit:
 
 ```csharp
 var executor = new Mock<IComExecutor>();
+var failure = new InvalidOperationException("Simulated activation failure.");
 executor
     .Setup(e => e.Execute(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Action>()))
-    .Callback<string, string, Action>((_, _, action) => action())
-    .Returns(new Result { Success = true });
+    .Returns(new Result { Success = false, Exception = failure });
 
 var sut = new ComStringProcessor(executor.Object);
-// assert against sut.ConcatenateStrings(...) without loading the COM DLL.
+var error = Assert.Throws<InvalidOperationException>(() => sut.ConcatenateStrings("a", "b"));
+Assert.Same(failure, error.InnerException);
+executor.Verify(
+    e => e.Execute(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Action>()),
+    Times.Once);
 ```
+
+To unit-test successful concatenation without COM, inject a separate string-concatenation abstraction
+and mock that dependency. Test the real COM implementation separately with its DLL and manifest.
 
 ### Create a COM Object and Release It Later
 
 Use `IComExecutor.Create(...)` when the COM object should outlive a single callback and you want to release it explicitly.
+
+**Exclusive ownership:** the factory must transfer ownership of its runtime callable wrapper (RCW) to
+the handle. Do not return a borrowed object, a cached/shared singleton, or an RCW owned by another handle.
+`Free`/`Dispose` calls `Marshal.FinalReleaseComObject`, invalidating **every managed alias** to that RCW,
+not just `handle.ComObject`. Do not release the RCW independently or use aliases after release.
+Child RCWs returned from properties or methods are not recursively released; their lifetime remains
+the caller's responsibility. `Execute` manages activation contexts only, not the objects created inside
+its callback. These ownership requirements cannot be inferred or enforced from managed alias counts.
+
+Handles must be created, used, and released on the **same thread**, in **reverse creation order**. Nested `using` statements naturally enforce this order. Finish nested `Execute` calls before releasing an outer handle. Dispose handles created inside a callback or factory before that delegate returns.
+
+`Free` rejects invalid thread or disposal order with a failed `Result`, leaving the object available for a correct retry. `Dispose` reports the failure through `HandleReleaseFailed` diagnostics and leaves `IsReleased` false. Neither successful cleanup nor suppression of leak diagnostics is claimed after a rejected disposal.
 
 #### Recommended: `using` statement with `IComExecutor`
 
@@ -402,6 +446,11 @@ public sealed class ScheduledComStringProcessor : IAsyncDisposable
         => SingleThreadedApartmentTaskScheduler.RunAsync(
             () =>
             {
+                if (_handle is not null)
+                {
+                    throw new InvalidOperationException("Release the existing COM handle before initializing again.");
+                }
+
                 var creation = _executor.Create(
                     _comDllPath,
                     _manifestPath,
@@ -443,13 +492,16 @@ public sealed class ScheduledComStringProcessor : IAsyncDisposable
                     {
                         var release = _executor.Free(_handle);
 
-                        _concatenator = null;
-                        _handle = null;
-
                         if (!release.Success)
                         {
+                            // Partial cleanup may have released the RCW. Keep the handle for retry,
+                            // but do not retain an alias to a released object.
+                            _concatenator = _handle.ComObject;
                             throw new InvalidOperationException("Failed to release the COM object.", release.Exception);
                         }
+
+                        _concatenator = null;
+                        _handle = null;
                     }
 
                     return 0;
@@ -458,9 +510,12 @@ public sealed class ScheduledComStringProcessor : IAsyncDisposable
 }
 ```
 
+If release fails, correct the cause (for example, release newer handles first) and retry `DisposeAsync`.
+The processor retains its handle until cleanup succeeds and rejects reinitialization in the meantime.
+
 ## 🧩 Dependency Injection
 
-This library does **not** ship a separate `*.DependencyInjection` NuGet package (see [ADR-0017](docs/adr/0017-no-dependency-injection-package.md)). `ComExecutor` is stateless and needs no configuration, so the canonical wiring is a one-liner using `Microsoft.Extensions.DependencyInjection`. Logging, metrics, and named/keyed resolution are achieved by composing `IComExecutor` with standard DI building blocks — no library-specific helpers required.
+This library does **not** ship a separate `*.DependencyInjection` NuGet package (see [ADR-0017](docs/adr/0017-no-dependency-injection-package.md)). `ComExecutor` has only an immutable pumping policy, so the canonical wiring is a one-liner using `Microsoft.Extensions.DependencyInjection`. Logging, metrics, and named/keyed resolution are achieved by composing `IComExecutor` with standard DI building blocks — no library-specific helpers required.
 
 ### Register as a singleton (canonical)
 
@@ -479,11 +534,11 @@ public sealed class MyService
 }
 ```
 
-`ComExecutor` holds no state, so a singleton is always correct. There is no reason to register it as scoped or transient.
+`ComExecutor` holds only immutable configuration, so it is safe to register as a singleton.
 
 ### Register as a keyed singleton (.NET 8+)
 
-When an application has several logical COM workloads — different manifests, different DLLs, different configuration — keyed registrations let each component resolve "its" executor by a string key. This is only meaningful when you also keep per-key `ComPathDescriptor` data somewhere (e.g. keyed options, a dictionary), because `ComExecutor` itself carries no state.
+When an application has several logical COM workloads, keyed registrations let each component resolve its executor by a string key. Keep per-key `ComPathDescriptor` data separately (e.g. keyed options or a dictionary); an executor stores only its pumping policy, not DLL or manifest paths.
 
 ```csharp
 services.AddKeyedSingleton<IComExecutor, ComExecutor>("primary");
@@ -668,8 +723,8 @@ Consume the metrics via your preferred exporter — OpenTelemetry, Application I
 
 1. **Activation Context Creation** - Creates Windows activation context from your manifest file
 2. **Context Activation** - Activates the context to enable registration-free COM
-3. **COM Execution** - Runs your code with the COM object in STA
-4. **Message Pumping** - Processes Windows messages for COM callbacks
+3. **COM Execution** - Runs your code on the calling thread; you provide STA setup when needed
+4. **Message Pumping** - When enabled (the default), processes up to 256 pending Windows messages, preserving `WM_QUIT`. Disable it when the host owns message processing. It cannot interrupt a blocking callback
 5. **Cleanup** - Automatically deactivates and releases contexts
 
 ## 📜 Creating COM Manifests
@@ -851,7 +906,7 @@ Executes an action with multiple COM activation contexts, activated in order and
 #### `Create<T>(string comAssemblyPath, string manifestPath, Func<T> factory)`
 
 Creates a COM object inside a registration-free activation context and returns a `ComObjectHandle<T>`.
-Release the handle later by calling `handle.Dispose()` (via `using`) or `executor.Free(handle)` on the same thread.
+Release the handle later by calling `handle.Dispose()` (via `using`) or `executor.Free(handle)` on the same thread, in reverse creation order.
 
 #### `Create<T>(ICollection<ComPathDescriptor> comPathDescriptors, Func<T> factory)`
 
@@ -861,9 +916,11 @@ Creates a COM object inside multiple registration-free activation contexts and r
 
 Releases a handle created by one of the `Create` overloads. Idempotent; a second call on an already-released handle is a no-op and returns success.
 
+Wrong-thread, reentrant, or out-of-order release returns a failed `Result` without releasing the object. Retry on the creating thread after completing nested callbacks and releasing newer handles. Operational failures, including malformed or missing manifests, are returned in `Result.Exception`; invalid arguments still throw.
+
 ### `ComExecutor` Class (recommended implementation)
 
-Stateless default implementation of `IComExecutor`. Register as a singleton:
+Default implementation of `IComExecutor` with an immutable pumping policy. Register as a singleton:
 
 ```csharp
 services.AddSingleton<IComExecutor, ComExecutor>();
@@ -876,7 +933,7 @@ public sealed class ComExecutor : IComExecutor { /* delegates to the static Exec
 
 ### `Executor` Static Class (legacy; kept for v2.x compatibility)
 
-The original static entry point, kept so existing code compiles unchanged. **Prefer `IComExecutor` + `ComExecutor` for all new code.** `ComExecutor` itself is a thin forwarder to this class, so the two APIs have identical behaviour.
+The original static entry point, kept so existing code compiles unchanged. **Prefer `IComExecutor` + `ComExecutor` for all new code.** `ComExecutor` forwards its pumping policy to this class. Existing static signatures continue to pump by default; both `Execute` and `Create` also have overloads taking a final `bool pumpPendingMessages` argument.
 
 ```csharp
 [SupportedOSPlatform("windows")]
@@ -952,7 +1009,8 @@ Thrown when the internal activation-context structure size does not match the cu
 4. ✅ **Handle exceptions** - COM calls can fail in various ways
 5. ✅ **Test on target platform** - COM behavior can vary by Windows version
 6. ⚠️ **Avoid long-running operations** in the action delegate
-7. ⚠️ **Be aware of STA threading model** requirements
+7. ⚠️ **Provide the required apartment** - use an `[STAThread]` entry point or an STA scheduler for STA components. This library does not establish an STA or initialize COM
+8. ⚠️ **Keep disposal on the owner thread and in reverse creation order** - do not let an `await` move handle use or disposal to another thread
 
 ## 📋 Requirements
 
@@ -1021,18 +1079,39 @@ Any non-zero rate of `HandleLeaked` events is a bug in the consuming code — ei
 
 ## 🧪 Building from Source
 
+Managed builds require the SDK pinned in `global.json`. Tests additionally require Windows,
+Visual Studio or Build Tools with **Desktop development with C++**, and a Windows SDK.
+The small `test/native/NativeLifetimeProbe.vcxproj` fixture builds automatically into ignored
+per-framework/per-architecture intermediate directories, without COM registration. Its native
+destruction counter and callback interface validate actual lifetime behavior, including reentrant release.
+The existing tracked `NativeCOM` sample payloads continue to test manifest-based activation.
+
 ```bash
 git clone https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM.git
 cd AdaskoTheBeAsT.Interop.COM
-dotnet restore
-dotnet build
-dotnet test
+dotnet restore AdaskoTheBeAsT.Interop.COM.slnx
+dotnet build AdaskoTheBeAsT.Interop.COM.slnx
+dotnet test AdaskoTheBeAsT.Interop.COM.slnx
 ```
 
 The project includes:
 - C# library (`src/AdaskoTheBeAsT.Interop.COM`)
 - Native COM example (`src/NativeCOM`)
 - Unit tests (`test/unit/AdaskoTheBeAsT.Interop.COM.Test`)
+- Source-built native lifetime fixture (`test/native`)
+
+Test payloads follow the explicitly selected `PlatformTarget`, runtime identifier, or platform.
+Defaults remain x86 for .NET Framework and x64 for modern .NET. The PE-header tests verify that both
+native DLLs match the running process; unsupported architectures fail the build.
+Managed outputs and compiler caches are separated by architecture as well, so switching between x86
+and x64 does not reuse an incompatible test assembly. The referenced library remains AnyCPU.
+To exercise both modern-.NET architectures (install both corresponding .NET runtimes):
+
+```powershell
+dotnet test test/unit/AdaskoTheBeAsT.Interop.COM.Test -f net10.0 --arch x86
+dotnet test test/unit/AdaskoTheBeAsT.Interop.COM.Test -f net10.0 --arch x64
+dotnet test test/unit/AdaskoTheBeAsT.Interop.COM.Test -f net462 -p:PlatformTarget=x64
+```
 
 ## ✅ Code Quality
 
@@ -1055,6 +1134,18 @@ Contributions are welcome! Please:
 ## 📜 Changelog
 
 Historical design decisions are captured as ADRs in [`docs/adr/`](docs/adr/README.md).
+
+### Unreleased fixes
+
+- Allow host-owned message processing through `new ComExecutor(pumpPendingMessages: false)` and additive static overloads. Handles retain the creation policy through release.
+- Use Unicode message retrieval and dispatch on older targets as well as modern .NET.
+- Document exclusive RCW ownership and validate native destruction, callback reentrancy, and alias invalidation.
+- Release already-created activation contexts when a later manifest fails, and return operational setup failures through `Result.Exception`.
+- Validate null actions and null collection entries before allocating native resources.
+- Use the COM DLL's directory as the base for private assembly probing.
+- Reject wrong-thread, reentrant, and out-of-order handle release before releasing the COM object. Check native deactivation results, retain unfinished cleanup state for retry, and keep diagnostics enabled after rejected disposal.
+- Bound each message pump to 256 messages and preserve `WM_QUIT` and its exit code.
+- Clarify that COM initialization and STA setup belong to the caller.
 
 ### v3.0.0
 
@@ -1158,18 +1249,23 @@ Because `IComExecutor` is an interface, `Moq` / `NSubstitute` / your favourite s
 ```csharp
 var mock = new Mock<IComExecutor>();
 mock.Setup(e => e.Execute(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Action>()))
-    .Callback<string, string, Action>((_, _, a) => a())
     .Returns(new Result { Success = true });
 
 var sut = new MyService(mock.Object);
-// assert...
+sut.Run();
+mock.Verify(
+    e => e.Execute(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Action>()),
+    Times.Once);
 ```
+
+This verifies delegation without executing `Work`. Only invoke a captured callback when that callback
+is itself COM-free; mocking the executor does not replace COM constructors inside it.
 
 There is no pressure to migrate existing call-sites that use the static `Executor`; both styles coexist indefinitely.
 
-### 5. Watch for `Debug.Fail` messages on leaked handles
+### 5. Watch for leaked-handle and release-failure diagnostics
 
-If you forget to call `Dispose`/`Executor.Free`, the finalizer will emit `Debug.Fail("ComObjectHandle<...> was not disposed...")` in Debug builds. Treat these as bug reports, not as runtime errors — Release builds simply ignore the message.
+If a handle is abandoned without successful cleanup, its finalizer emits a `HandleLeaked` event in Debug and Release builds. Debug builds additionally call `Debug.Fail` when a debugger is attached. A failed `Dispose` emits `HandleReleaseFailed`, leaves the handle available for retry, and does not suppress leak diagnostics. Check `IsReleased` or use `Free` to inspect the failure result.
 
 ### 6. Target framework changes
 
@@ -1196,11 +1292,12 @@ Generate the agnostic interop assembly once (the existing `generatelib.bat` in t
     /machine:Agnostic
 ```
 
-Then route the arch-specific pieces with TFM conditions in your csproj:
+Then route the arch-specific pieces by the host project's explicit `PlatformTarget`, not its TFM:
 
 ```xml
-<PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
-  <PlatformTarget>x86</PlatformTarget>
+<PropertyGroup>
+  <!-- Choose the host's architecture explicitly, or pass -p:PlatformTarget=x86. -->
+  <PlatformTarget Condition="'$(PlatformTarget)' == ''">x64</PlatformTarget>
 </PropertyGroup>
 
 <!-- One MSIL-neutral interop assembly works for both 32-bit and 64-bit test hosts -->
@@ -1210,8 +1307,8 @@ Then route the arch-specific pieces with TFM conditions in your csproj:
   </Reference>
 </ItemGroup>
 
-<!-- 32-bit native payload + x86 manifest for .NET Framework TFMs -->
-<ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+<!-- 32-bit native payload + x86 manifest for a 32-bit host -->
+<ItemGroup Condition="'$(PlatformTarget)' == 'x86'">
   <None Include="..\..\..\x86\Debug\NativeCOM.dll">
     <Link>NativeCOM.dll</Link>
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -1222,8 +1319,8 @@ Then route the arch-specific pieces with TFM conditions in your csproj:
   </None>
 </ItemGroup>
 
-<!-- 64-bit native payload + amd64 manifest for .NET Core TFMs -->
-<ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+<!-- 64-bit native payload + amd64 manifest for a 64-bit host -->
+<ItemGroup Condition="'$(PlatformTarget)' == 'x64'">
   <None Include="..\..\..\x64\Debug\NativeCOM.dll">
     <Link>NativeCOM.dll</Link>
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -1310,10 +1407,10 @@ corflags .\x86\Debug\Interop.NativeCOM.dll   # 32BITREQ : 1
 corflags .\x64\Debug\Interop.NativeCOM.dll   # 32BITREQ : 0 (x64 only)
 ```
 
-**Step 4 - TFM-condition the `Reference` as well.** Unlike Option A, the interop assembly now differs per arch, so extend the TFM conditions to both the native payload, manifest, **and** the managed reference:
+**Step 4 - architecture-condition the `Reference` as well.** Unlike Option A, the interop assembly now differs per arch, so use the host's `PlatformTarget` for the native payload, manifest, **and** the managed reference:
 
 ```xml
-<ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+<ItemGroup Condition="'$(PlatformTarget)' == 'x86'">
   <Reference Include="Interop.NativeCOM">
     <HintPath>..\..\..\x86\Debug\Interop.NativeCOM.dll</HintPath>
   </Reference>
@@ -1327,7 +1424,7 @@ corflags .\x64\Debug\Interop.NativeCOM.dll   # 32BITREQ : 0 (x64 only)
   </None>
 </ItemGroup>
 
-<ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+<ItemGroup Condition="'$(PlatformTarget)' == 'x64'">
   <Reference Include="Interop.NativeCOM">
     <HintPath>..\..\..\x64\Debug\Interop.NativeCOM.dll</HintPath>
   </Reference>

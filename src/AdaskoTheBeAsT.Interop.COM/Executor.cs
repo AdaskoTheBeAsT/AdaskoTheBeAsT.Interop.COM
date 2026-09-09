@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 #if NET8_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -17,6 +19,11 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// <b>New code should prefer <see cref="IComExecutor"/> (implemented by <see cref="ComExecutor"/>)</b>, which
 /// exposes the same surface through an injectable, testable interface. This static class is retained for
 /// source-level compatibility with v2.x callers.
+/// </para>
+/// <para>
+/// Work runs synchronously on the calling thread. This library does not initialize COM or change the
+/// apartment state. Callers must provide an STA thread when required by their component.
+/// Nested handles created inside a callback or factory must be released before that delegate returns.
 /// </para>
 /// </remarks>
 #if NET8_0_OR_GREATER
@@ -36,6 +43,10 @@ public static class Executor
     /// </summary>
     private const int NativeActCtxSizeX64 = 0x38;
 
+    // Track cookies, not COM handles, so this stack does not prevent leak diagnostics from running.
+    [ThreadStatic]
+    private static List<IntPtr>? _activeCookies;
+
     /// <summary>
     /// Activates a single registration-free COM context, executes the supplied callback, pumps pending COM
     /// messages, and then releases the activation context.
@@ -48,16 +59,29 @@ public static class Executor
     /// completes successfully. When the operation fails, <see cref="Result.Success"/> is
     /// <see langword="false"/> and <see cref="Result.Exception"/> contains the captured exception.
     /// </returns>
-    /// <exception cref="ArgumentNullException">Thrown when comAssemblyPath or manifestPath is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when comAssemblyPath, manifestPath, or action is null.</exception>
     /// <exception cref="ArgumentException">Thrown when comAssemblyPath or manifestPath is empty or whitespace.</exception>
     /// <remarks>Exceptions raised while activating the context or running <paramref name="action"/> are captured in the returned result instead of being rethrown.</remarks>
     public static Result Execute(
         string comAssemblyPath,
         string manifestPath,
         Action action)
+        => Execute(comAssemblyPath, manifestPath, action, pumpPendingMessages: true);
+
+    /// <inheritdoc cref="Execute(string,string,Action)" />
+    /// <param name="comAssemblyPath">Full path to the COM DLL assembly.</param>
+    /// <param name="manifestPath">Full path to the manifest file.</param>
+    /// <param name="action">Action to execute within the activation context.</param>
+    /// <param name="pumpPendingMessages">Whether to pump messages after the callback. Disable when the host owns message processing.</param>
+    public static Result Execute(
+        string comAssemblyPath,
+        string manifestPath,
+        Action action,
+        bool pumpPendingMessages)
     {
         ThrowHelper.ThrowIfNull(comAssemblyPath, nameof(comAssemblyPath));
         ThrowHelper.ThrowIfNull(manifestPath, nameof(manifestPath));
+        ThrowHelper.ThrowIfNull(action, nameof(action));
 
         if (string.IsNullOrWhiteSpace(comAssemblyPath))
         {
@@ -70,42 +94,7 @@ public static class Executor
         }
 
         var descriptor = new ComPathDescriptor(comAssemblyPath, manifestPath);
-        var ctx = PrepareContext(descriptor);
-        var hActCtx = CreateContext(ctx);
-
-        var result = new Result { Success = false };
-        try
-        {
-            var cookie = ActivateContext(hActCtx);
-
-            try
-            {
-                action?.Invoke();
-
-                // Pump COM messages in STA apartment
-                NativeMethods.PumpPendingMessages();
-
-                result.Success = true;
-            }
-            catch (Exception ex)
-            {
-                result.Exception = ex;
-            }
-            finally
-            {
-                NativeMethods.DeactivateActCtx(0, cookie);
-            }
-        }
-        catch (Exception ex)
-        {
-            result.Exception = ex;
-        }
-        finally
-        {
-            NativeMethods.ReleaseActCtx(hActCtx);
-        }
-
-        return result;
+        return Execute([descriptor], action, pumpPendingMessages);
     }
 
     /// <summary>
@@ -119,48 +108,23 @@ public static class Executor
     /// completes successfully. When the operation fails, <see cref="Result.Success"/> is
     /// <see langword="false"/> and <see cref="Result.Exception"/> contains the captured exception.
     /// </returns>
-    /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors is null.</exception>
-    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors or action is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty or contains null.</exception>
     /// <remarks>Exceptions raised while activating the contexts or running <paramref name="action"/> are captured in the returned result instead of being rethrown.</remarks>
     public static Result Execute(
         ICollection<ComPathDescriptor> comPathDescriptors,
         Action action)
-    {
-        ValidateComPathDescriptors(comPathDescriptors);
-        var hActCtxs = CreateActivationContexts(comPathDescriptors);
+        => Execute(comPathDescriptors, action, pumpPendingMessages: true);
 
-        var result = new Result { Success = false };
-        var cookies = new List<IntPtr>(hActCtxs.Count);
-        try
-        {
-            cookies = ActivateContexts(hActCtxs);
-
-            try
-            {
-                action?.Invoke();
-
-                // Pump COM messages after callback
-                NativeMethods.PumpPendingMessages();
-
-                result.Success = true;
-            }
-            catch (Exception ex)
-            {
-                result.Exception = ex;
-            }
-        }
-        catch (Exception ex)
-        {
-            result.Exception = ex;
-        }
-        finally
-        {
-            DeactivateContexts(cookies);
-            ReleaseActivationContexts(hActCtxs);
-        }
-
-        return result;
-    }
+    /// <inheritdoc cref="Execute(ICollection{ComPathDescriptor},Action)" />
+    /// <param name="comPathDescriptors">Collection of DLL and manifest paths.</param>
+    /// <param name="action">Action to execute within the activation contexts.</param>
+    /// <param name="pumpPendingMessages">Whether to pump messages after the callback. Disable when the host owns message processing.</param>
+    public static Result Execute(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        Action action,
+        bool pumpPendingMessages)
+        => Execute(comPathDescriptors, action, pumpPendingMessages, ActivationContextApi.Instance);
 
     /// <summary>
     /// Creates a COM object inside a single registration-free COM activation context and returns a handle that
@@ -181,12 +145,27 @@ public static class Executor
     /// <exception cref="ArgumentException">Thrown when comAssemblyPath or manifestPath is empty or whitespace.</exception>
     /// <remarks>
     /// The returned handle is thread-affine. Create, use, and release it on the same thread by calling
-    /// <see cref="Free{T}(ComObjectHandle{T})"/>.
+    /// <see cref="Free{T}(ComObjectHandle{T})"/>. Release handles in reverse creation order.
+    /// The factory transfers exclusive ownership of its RCW. Do not return a borrowed or shared RCW:
+    /// release calls <c>Marshal.FinalReleaseComObject</c> and invalidates every alias to that wrapper.
     /// </remarks>
     public static ComObjectCreationResult<T> Create<T>(
         string comAssemblyPath,
         string manifestPath,
         Func<T> factory)
+        where T : class
+        => Create(comAssemblyPath, manifestPath, factory, pumpPendingMessages: true);
+
+    /// <inheritdoc cref="Create{T}(string,string,Func{T})" />
+    /// <param name="comAssemblyPath">Full path to the COM DLL assembly.</param>
+    /// <param name="manifestPath">Full path to the manifest file.</param>
+    /// <param name="factory">Factory transferring exclusive ownership of its non-null COM object.</param>
+    /// <param name="pumpPendingMessages">Whether to pump messages after creation and during release. The handle retains this policy.</param>
+    public static ComObjectCreationResult<T> Create<T>(
+        string comAssemblyPath,
+        string manifestPath,
+        Func<T> factory,
+        bool pumpPendingMessages)
         where T : class
     {
         ThrowHelper.ThrowIfNull(comAssemblyPath, nameof(comAssemblyPath));
@@ -204,7 +183,7 @@ public static class Executor
         }
 
         var descriptor = new ComPathDescriptor(comAssemblyPath, manifestPath);
-        return Create([descriptor], factory);
+        return Create([descriptor], factory, pumpPendingMessages);
     }
 
     /// <summary>
@@ -222,59 +201,29 @@ public static class Executor
     /// <see cref="Result.Exception"/> contains the captured exception.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when comPathDescriptors or factory is null.</exception>
-    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when comPathDescriptors is empty or contains null.</exception>
     /// <remarks>
     /// The returned handle is thread-affine. Create, use, and release it on the same thread by calling
-    /// <see cref="Free{T}(ComObjectHandle{T})"/>.
+    /// <see cref="Free{T}(ComObjectHandle{T})"/>. Release handles in reverse creation order.
+    /// The factory transfers exclusive ownership of its RCW. Do not return a borrowed or shared RCW:
+    /// release calls <c>Marshal.FinalReleaseComObject</c> and invalidates every alias to that wrapper.
     /// </remarks>
     public static ComObjectCreationResult<T> Create<T>(
         ICollection<ComPathDescriptor> comPathDescriptors,
         Func<T> factory)
         where T : class
-    {
-        ValidateComPathDescriptors(comPathDescriptors);
-        ThrowHelper.ThrowIfNull(factory, nameof(factory));
+        => Create(comPathDescriptors, factory, pumpPendingMessages: true);
 
-        var hActCtxs = CreateActivationContexts(comPathDescriptors);
-
-        var result = new ComObjectCreationResult<T> { Success = false };
-        var cookies = new List<IntPtr>(hActCtxs.Count);
-        try
-        {
-            cookies = ActivateContexts(hActCtxs);
-
-            try
-            {
-#pragma warning disable CC0031
-                var comObject = factory() ?? throw new InvalidOperationException("The COM factory returned null.");
-#pragma warning restore CC0031
-
-                // Pump COM messages in STA apartment
-                NativeMethods.PumpPendingMessages();
-
-                result.Value = new ComObjectHandle<T>(comObject, [.. hActCtxs], [.. cookies]);
-                result.Success = true;
-            }
-            catch (Exception ex)
-            {
-                result.Exception = ex;
-            }
-        }
-        catch (Exception ex)
-        {
-            result.Exception = ex;
-        }
-        finally
-        {
-            if (!result.Success)
-            {
-                DeactivateContexts(cookies);
-                ReleaseActivationContexts(hActCtxs);
-            }
-        }
-
-        return result;
-    }
+    /// <inheritdoc cref="Create{T}(ICollection{ComPathDescriptor},Func{T})" />
+    /// <param name="comPathDescriptors">Collection of DLL and manifest paths.</param>
+    /// <param name="factory">Factory transferring exclusive ownership of its non-null COM object.</param>
+    /// <param name="pumpPendingMessages">Whether to pump messages after creation and during release. The handle retains this policy.</param>
+    public static ComObjectCreationResult<T> Create<T>(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        Func<T> factory,
+        bool pumpPendingMessages)
+        where T : class
+        => Create(comPathDescriptors, factory, pumpPendingMessages, ActivationContextApi.Instance);
 
     /// <summary>
     /// Releases a COM object handle that was previously created by <see cref="Create{T}(string,string,Func{T})"/>
@@ -290,7 +239,9 @@ public static class Executor
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when comObjectHandle is null.</exception>
     /// <remarks>
-    /// This method is idempotent and should be called on the same thread that created the handle. After release,
+    /// This method is idempotent and must be called on the creating thread, in reverse creation order.
+    /// An invalid thread or release order returns a failed result without releasing the object.
+    /// After successful release,
     /// <see cref="ComObjectHandle{T}.ComObject"/> becomes <see langword="null"/> and the handle should no longer be used.
     /// </remarks>
     public static Result Free<T>(ComObjectHandle<T> comObjectHandle)
@@ -306,13 +257,30 @@ public static class Executor
         var result = new Result { Success = false };
         try
         {
+            comObjectHandle.ValidateRelease();
+            ValidateReleaseOrder(comObjectHandle.ActivationCookies, comObjectHandle.ActivationContextHandles, comObjectHandle.ContextApi);
+        }
+        catch (Exception ex)
+        {
+            result.Exception = ex;
+            return result;
+        }
+
+        comObjectHandle.IsReleasing = true;
+        try
+        {
             var comObject = comObjectHandle.ComObject;
             if (comObject is not null && Marshal.IsComObject(comObject))
             {
                 Marshal.FinalReleaseComObject(comObject);
             }
 
-            NativeMethods.PumpPendingMessages();
+            comObjectHandle.ComObject = null;
+            if (comObjectHandle.PumpPendingMessages)
+            {
+                NativeMethods.PumpPendingMessages();
+            }
+
             result.Success = true;
         }
         catch (Exception ex)
@@ -321,9 +289,110 @@ public static class Executor
         }
         finally
         {
-            DeactivateContexts(comObjectHandle.ActivationCookies);
-            ReleaseActivationContexts(comObjectHandle.ActivationContextHandles);
-            comObjectHandle.MarkReleased();
+            if (comObjectHandle.ComObject is null
+                && CleanupContexts(comObjectHandle.ActivationCookies, comObjectHandle.ActivationContextHandles, result, comObjectHandle.ContextApi))
+            {
+                comObjectHandle.MarkReleased();
+            }
+
+            comObjectHandle.IsReleasing = false;
+        }
+
+        return result;
+    }
+
+    internal static Result Execute(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        Action action,
+        bool pumpPendingMessages,
+        ActivationContextApi contextApi)
+    {
+        ValidateComPathDescriptors(comPathDescriptors);
+        ThrowHelper.ThrowIfNull(action, nameof(action));
+
+        var result = new Result { Success = false };
+        var hActCtxs = new List<IntPtr>(comPathDescriptors.Count);
+        var cookies = new List<IntPtr>(comPathDescriptors.Count);
+        try
+        {
+            CreateActivationContexts(comPathDescriptors, hActCtxs, contextApi);
+            ActivateContexts(hActCtxs, cookies, contextApi);
+#pragma warning disable CC0031 // Validated by ThrowHelper before allocating native resources.
+            action();
+#pragma warning restore CC0031
+
+            if (pumpPendingMessages)
+            {
+                NativeMethods.PumpPendingMessages();
+            }
+
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            result.Exception = ex;
+        }
+        finally
+        {
+            CleanupContexts(cookies, hActCtxs, result, contextApi);
+        }
+
+        return result;
+    }
+
+    internal static ComObjectCreationResult<T> Create<T>(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        Func<T> factory,
+        bool pumpPendingMessages,
+        ActivationContextApi contextApi)
+        where T : class
+    {
+        ValidateComPathDescriptors(comPathDescriptors);
+        ThrowHelper.ThrowIfNull(factory, nameof(factory));
+
+        var result = new ComObjectCreationResult<T> { Success = false };
+        var hActCtxs = new List<IntPtr>(comPathDescriptors.Count);
+        var cookies = new List<IntPtr>(comPathDescriptors.Count);
+        try
+        {
+            CreateActivationContexts(comPathDescriptors, hActCtxs, contextApi);
+            ActivateContexts(hActCtxs, cookies, contextApi);
+
+#pragma warning disable CC0031
+            var comObject = factory() ?? throw new InvalidOperationException("The COM factory returned null.");
+#pragma warning restore CC0031
+
+            result.Value = new ComObjectHandle<T>(comObject, hActCtxs, cookies, pumpPendingMessages, contextApi);
+            if (pumpPendingMessages)
+            {
+                NativeMethods.PumpPendingMessages();
+            }
+
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            result.Exception = ex;
+        }
+        finally
+        {
+            if (!result.Success)
+            {
+                if (result.Value is not null)
+                {
+                    var release = Free(result.Value);
+                    if (!release.Success && release.Exception is not null)
+                    {
+                        RecordFailure(result, release.Exception);
+                    }
+
+                    result.Value = null;
+                }
+                else
+                {
+                    CleanupContexts(cookies, hActCtxs, result, contextApi);
+                }
+            }
         }
 
         return result;
@@ -337,56 +406,116 @@ public static class Executor
         {
             throw new ArgumentException("COM path descriptors collection cannot be empty.", nameof(comPathDescriptors));
         }
+
+        if (comPathDescriptors.Any(descriptor => descriptor is null))
+        {
+            throw new ArgumentException("COM path descriptors collection cannot contain null.", nameof(comPathDescriptors));
+        }
     }
 
-    private static List<IntPtr> CreateActivationContexts(ICollection<ComPathDescriptor> comPathDescriptors)
+    private static void CreateActivationContexts(
+        ICollection<ComPathDescriptor> comPathDescriptors,
+        List<IntPtr> hActCtxs,
+        ActivationContextApi contextApi)
     {
-        var hActCtxs = new List<IntPtr>(comPathDescriptors.Count);
-
         foreach (var comPathDescriptor in comPathDescriptors)
         {
             var ac = PrepareContext(comPathDescriptor);
-            var hActCtx = CreateContext(ac);
+            var hActCtx = CreateContext(ac, contextApi);
             hActCtxs.Add(hActCtx);
         }
-
-        return hActCtxs;
     }
 
-    private static List<IntPtr> ActivateContexts(List<IntPtr> activationContextHandles)
+    private static void ActivateContexts(List<IntPtr> activationContextHandles, List<IntPtr> cookies, ActivationContextApi contextApi)
     {
-        var cookies = new List<IntPtr>(activationContextHandles.Count);
+        foreach (var hActCtx in activationContextHandles)
+        {
+            var cookie = ActivateContext(hActCtx, contextApi);
+            cookies.Add(cookie);
+        }
+    }
+
+    private static void ValidateReleaseOrder(IReadOnlyList<IntPtr> cookies, IReadOnlyList<IntPtr> handles, ActivationContextApi contextApi)
+    {
+        if (cookies.Count == 0)
+        {
+            return;
+        }
+
+        var stack = _activeCookies;
+        if (stack is null || stack.Count < cookies.Count)
+        {
+            throw new InvalidOperationException("Activation contexts must be released on the creating thread in reverse order.");
+        }
+
+        for (int i = 0; i < cookies.Count; i++)
+        {
+            if (stack[stack.Count - cookies.Count + i] != cookies[i])
+            {
+                throw new InvalidOperationException("Release nested handles and callbacks before releasing this handle.");
+            }
+        }
+
+        if (!contextApi.GetCurrentActCtx(out var current))
+        {
+            throw new Win32Exception();
+        }
 
         try
         {
-            foreach (var hActCtx in activationContextHandles)
+            if (current != handles[cookies.Count - 1])
             {
-                var cookie = ActivateContext(hActCtx);
-                cookies.Add(cookie);
+                throw new InvalidOperationException("A different activation context is active. Release it before releasing this handle.");
+            }
+        }
+        finally
+        {
+            if (current != IntPtr.Zero)
+            {
+                contextApi.ReleaseActCtx(current);
+            }
+        }
+    }
+
+    private static bool CleanupContexts(List<IntPtr> cookies, List<IntPtr> handles, Result result, ActivationContextApi contextApi)
+    {
+        try
+        {
+            ValidateReleaseOrder(cookies, handles, contextApi);
+            while (cookies.Count > 0)
+            {
+                var index = cookies.Count - 1;
+                if (!contextApi.DeactivateActCtx(cookies[index]))
+                {
+                    throw new Win32Exception();
+                }
+
+                cookies.RemoveAt(index);
+                _activeCookies!.RemoveAt(_activeCookies.Count - 1);
             }
 
-            return cookies;
+            ReleaseActivationContexts(handles, contextApi);
+            handles.Clear();
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            DeactivateContexts(cookies);
-            throw;
+            RecordFailure(result, ex);
+            return false;
         }
     }
 
-    private static void DeactivateContexts(IReadOnlyList<IntPtr> cookies)
+    private static void RecordFailure(Result result, Exception exception)
     {
-        for (int i = cookies.Count - 1; i >= 0; i--)
-        {
-            NativeMethods.DeactivateActCtx(0, cookies[i]);
-        }
+        result.Success = false;
+        result.Exception = result.Exception is null ? exception : new AggregateException(result.Exception, exception);
     }
 
-    private static void ReleaseActivationContexts(IReadOnlyList<IntPtr> activationContextHandles)
+    private static void ReleaseActivationContexts(IReadOnlyList<IntPtr> activationContextHandles, ActivationContextApi contextApi)
     {
         for (int i = activationContextHandles.Count - 1; i >= 0; i--)
         {
-            NativeMethods.ReleaseActCtx(activationContextHandles[i]);
+            contextApi.ReleaseActCtx(activationContextHandles[i]);
         }
     }
 
@@ -405,15 +534,15 @@ public static class Executor
                     ac.cbSize));
         }
 
-        ac.lpAssemblyDirectory = comPathDescriptor.ComAssemblyPath;
-        ac.lpSource = comPathDescriptor.ComManifestPath;
+        ac.lpAssemblyDirectory = Path.GetDirectoryName(Path.GetFullPath(comPathDescriptor.ComAssemblyPath))!;
+        ac.lpSource = Path.GetFullPath(comPathDescriptor.ComManifestPath);
         ac.dwFlags = NativeMethods.ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
         return ac;
     }
 
-    private static IntPtr CreateContext(ActCtx actCtx)
+    private static IntPtr CreateContext(ActCtx actCtx, ActivationContextApi contextApi)
     {
-        var hActCtx = NativeMethods.CreateActCtx(ref actCtx);
+        var hActCtx = contextApi.CreateActCtx(ref actCtx);
         if (hActCtx == (IntPtr)(-1))
         {
             throw new Win32Exception();
@@ -422,13 +551,15 @@ public static class Executor
         return hActCtx;
     }
 
-    private static IntPtr ActivateContext(IntPtr hActCtx)
+    private static IntPtr ActivateContext(IntPtr hActCtx, ActivationContextApi contextApi)
     {
-        if (!NativeMethods.ActivateActCtx(hActCtx, out var cookie))
+        var stack = _activeCookies ??= [];
+        if (!contextApi.ActivateActCtx(hActCtx, out var cookie))
         {
             throw new Win32Exception();
         }
 
+        stack.Add(cookie);
         return cookie;
     }
 }
