@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-08
-- Release: Unreleased
+- Release: v4.0.0
 - Supersedes lifetime and pumping details in ADR-0010, ADR-0011, and ADR-0012
 
 ## Context

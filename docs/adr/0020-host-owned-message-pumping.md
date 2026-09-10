@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-09
-- Release: Unreleased
+- Release: v4.0.0
 - Extends ADR-0019
 
 ## Context

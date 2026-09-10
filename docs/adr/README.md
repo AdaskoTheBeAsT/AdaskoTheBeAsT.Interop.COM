@@ -26,8 +26,8 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0016](0016-remove-x86-platform-target.md) | Build the Managed Library as `AnyCPU` | Accepted | v3.0.0 |
 | [0017](0017-no-dependency-injection-package.md) | Do Not Ship a Separate `DependencyInjection` Package (For Now) | Accepted | v3.0.0 |
 | [0018](0018-eventsource-for-leaked-handles.md) | Diagnostic `EventSource` for Leaked `ComObjectHandle<T>` | Accepted | v3.0.0 |
-| [0019](0019-safe-activation-context-cleanup.md) | Enforce Activation-Context Lifetime and Bound Message Pumping | Accepted | Unreleased |
-| [0020](0020-host-owned-message-pumping.md) | Support Host-Owned Message Pumping and Explicit RCW Ownership | Accepted | Unreleased |
+| [0019](0019-safe-activation-context-cleanup.md) | Enforce Activation-Context Lifetime and Bound Message Pumping | Accepted | v4.0.0 |
+| [0020](0020-host-owned-message-pumping.md) | Support Host-Owned Message Pumping and Explicit RCW Ownership | Accepted | v4.0.0 |
 
 ## Conventions
 
