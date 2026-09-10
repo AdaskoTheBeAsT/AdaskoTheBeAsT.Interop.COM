@@ -5,7 +5,9 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable MA0204
 public partial class MessagePumpTest
+#pragma warning restore MA0204
 {
     private const uint WmQuit = 0x0012;
     private const uint PmNoRemove = 0x0000;
