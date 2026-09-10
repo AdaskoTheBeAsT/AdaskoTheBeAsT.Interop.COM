@@ -13,18 +13,13 @@ internal sealed class TestWindow : IDisposable
     internal const uint CharacterMessage = 0x0102;
     private readonly string _className = "ComTestWindow" + Guid.NewGuid().ToString("N");
     private readonly WindowProcedure _procedure;
-    private readonly IntPtr _instance = NativeMethods.GetModuleHandle(null);
+    private readonly IntPtr _instance = NativeMethods.GetModuleHandle(moduleName: null);
     private IntPtr _window;
 
     internal TestWindow()
     {
         _procedure = ProcessMessage;
-        var windowClass = new WindowClass
-        {
-            Procedure = _procedure,
-            Instance = _instance,
-            ClassName = _className,
-        };
+        var windowClass = new WindowClass(_procedure, _instance, _className);
         if (NativeMethods.RegisterClass(ref windowClass) == 0)
         {
             throw new Win32Exception();
@@ -112,18 +107,25 @@ internal sealed class TestWindow : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct WindowClass
+    private readonly struct WindowClass
     {
-        public uint Style;
-        public WindowProcedure Procedure;
-        public int ClassExtra;
-        public int WindowExtra;
-        public IntPtr Instance;
-        public IntPtr Icon;
-        public IntPtr Cursor;
-        public IntPtr Background;
-        public string? MenuName;
-        public string ClassName;
+        public readonly uint Style;
+        public readonly WindowProcedure Procedure;
+        public readonly int ClassExtra;
+        public readonly int WindowExtra;
+        public readonly IntPtr Instance;
+        public readonly IntPtr Icon;
+        public readonly IntPtr Cursor;
+        public readonly IntPtr Background;
+        public readonly string? MenuName;
+        public readonly string ClassName;
+
+        public WindowClass(WindowProcedure procedure, IntPtr instance, string className)
+        {
+            Procedure = procedure;
+            Instance = instance;
+            ClassName = className;
+        }
     }
 
     private static class NativeMethods

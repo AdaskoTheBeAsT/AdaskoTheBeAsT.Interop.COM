@@ -9,6 +9,7 @@ namespace AdaskoTheBeAsT.Interop.COM.Test;
 #pragma warning disable IDISP016 // These assertions intentionally inspect released handles.
 public class NativeLifetimeTest
 {
+#pragma warning disable SYSLIB1096 // These tests require runtime COM wrappers to verify Marshal.FinalReleaseComObject behavior.
     [ComImport]
     [Guid("c64bcaf7-3ee8-421d-a8ee-46cb0c9238f4")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -19,6 +20,7 @@ public class NativeLifetimeTest
 
         void SetReleaseCallback(IReleaseCallback callback);
     }
+#pragma warning restore SYSLIB1096
 
     [ComVisible(true)]
     [Guid("a80d257f-4121-49f2-84ca-0b4b40487d94")]

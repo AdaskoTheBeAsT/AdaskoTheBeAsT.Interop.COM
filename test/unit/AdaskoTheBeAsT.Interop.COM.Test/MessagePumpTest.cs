@@ -110,7 +110,7 @@ public partial class MessagePumpTest
             NativeMethods.PostThreadMessage(
                 NativeMethods.GetCurrentThreadId(), hostMessage, new IntPtr(42), new IntPtr(-7)).Should().BeTrue();
             var (comAssemblyPath, manifestPath) = GetPaths();
-            IComExecutor executor = new ComExecutor(pumpPendingMessages: false);
+            var executor = new ComExecutor(pumpPendingMessages: false);
 
             executor.Execute(comAssemblyPath, manifestPath, () => { }).Success.Should().BeTrue();
             var creation = executor.Create(comAssemblyPath, manifestPath, () => new object());

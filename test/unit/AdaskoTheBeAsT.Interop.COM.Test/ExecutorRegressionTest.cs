@@ -41,17 +41,9 @@ public class ExecutorRegressionTest
             new ComPathDescriptor("missing.dll", "missing.manifest"),
             null!,
         };
-        Action act = () =>
-        {
-            if (create)
-            {
-                _ = Executor.Create(descriptors, () => new object());
-            }
-            else
-            {
-                _ = Executor.Execute(descriptors, () => { });
-            }
-        };
+        Action act = () => _ = create
+            ? Executor.Create(descriptors, () => new object())
+            : Executor.Execute(descriptors, () => { });
 
         act.Should().Throw<ArgumentException>().WithParameterName("comPathDescriptors");
     }

@@ -435,7 +435,7 @@ public static class Executor
         }
     }
 
-    private static void ValidateReleaseOrder(IReadOnlyList<IntPtr> cookies, IReadOnlyList<IntPtr> handles, ActivationContextApi contextApi)
+    private static void ValidateReleaseOrder(List<IntPtr> cookies, List<IntPtr> handles, ActivationContextApi contextApi)
     {
         if (cookies.Count == 0)
         {
@@ -511,7 +511,7 @@ public static class Executor
         result.Exception = result.Exception is null ? exception : new AggregateException(result.Exception, exception);
     }
 
-    private static void ReleaseActivationContexts(IReadOnlyList<IntPtr> activationContextHandles, ActivationContextApi contextApi)
+    private static void ReleaseActivationContexts(List<IntPtr> activationContextHandles, ActivationContextApi contextApi)
     {
         for (int i = activationContextHandles.Count - 1; i >= 0; i--)
         {

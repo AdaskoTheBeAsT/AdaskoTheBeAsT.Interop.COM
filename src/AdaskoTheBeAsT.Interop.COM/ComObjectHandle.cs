@@ -162,8 +162,8 @@ public sealed class ComObjectHandle<T>
         ComObject = default;
         ActivationContextHandles.Clear();
         ActivationCookies.Clear();
-#pragma warning disable S3971 // Executor.Free is also an explicit release path, without calling Dispose.
+#pragma warning disable S3971, CA1816 // Executor.Free is also an explicit release path, without calling Dispose.
         GC.SuppressFinalize(this);
-#pragma warning restore S3971
+#pragma warning restore S3971, CA1816
     }
 }

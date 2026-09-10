@@ -25,21 +25,15 @@ public class PumpPolicyTest
         {
             using var window = new TestWindow();
             var descriptors = new[] { new ComPathDescriptor(AssemblyPath, ManifestPath) };
-            IComExecutor executor = new ComExecutor(pump);
+            var executor = new ComExecutor(pump);
             window.Post();
-            Result result;
-            if (useStatic)
+            var result = (useStatic, collection) switch
             {
-                result = collection
-                    ? Executor.Execute(descriptors, () => { }, pump)
-                    : Executor.Execute(AssemblyPath, ManifestPath, () => { }, pump);
-            }
-            else
-            {
-                result = collection
-                    ? executor.Execute(descriptors, () => { })
-                    : executor.Execute(AssemblyPath, ManifestPath, () => { });
-            }
+                (true, true) => Executor.Execute(descriptors, () => { }, pump),
+                (true, false) => Executor.Execute(AssemblyPath, ManifestPath, () => { }, pump),
+                (false, true) => executor.Execute(descriptors, () => { }),
+                (false, false) => executor.Execute(AssemblyPath, ManifestPath, () => { }),
+            };
 
             result.Success.Should().BeTrue();
             window.DeliveryCount.Should().Be(pump ? 1 : 0);
@@ -63,21 +57,15 @@ public class PumpPolicyTest
         {
             using var window = new TestWindow();
             var descriptors = new[] { new ComPathDescriptor(AssemblyPath, ManifestPath) };
-            IComExecutor executor = new ComExecutor(pump);
+            var executor = new ComExecutor(pump);
             window.Post();
-            ComObjectCreationResult<object> creation;
-            if (useStatic)
+            var creation = (useStatic, collection) switch
             {
-                creation = collection
-                    ? Executor.Create(descriptors, () => new object(), pump)
-                    : Executor.Create(AssemblyPath, ManifestPath, () => new object(), pump);
-            }
-            else
-            {
-                creation = collection
-                    ? executor.Create(descriptors, () => new object())
-                    : executor.Create(AssemblyPath, ManifestPath, () => new object());
-            }
+                (true, true) => Executor.Create(descriptors, () => new object(), pump),
+                (true, false) => Executor.Create(AssemblyPath, ManifestPath, () => new object(), pump),
+                (false, true) => executor.Create(descriptors, () => new object()),
+                (false, false) => executor.Create(AssemblyPath, ManifestPath, () => new object()),
+            };
 
             creation.Success.Should().BeTrue();
             using var handle = creation.Value!;
