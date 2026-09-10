@@ -534,7 +534,8 @@ public static class Executor
                     ac.cbSize));
         }
 
-        ac.lpAssemblyDirectory = Path.GetDirectoryName(Path.GetFullPath(comPathDescriptor.ComAssemblyPath))!;
+        ac.lpAssemblyDirectory = Path.GetDirectoryName(Path.GetFullPath(comPathDescriptor.ComAssemblyPath))
+            ?? throw new ArgumentException("COM assembly path must have a containing directory.", nameof(comPathDescriptor));
         ac.lpSource = Path.GetFullPath(comPathDescriptor.ComManifestPath);
         ac.dwFlags = NativeMethods.ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
         return ac;

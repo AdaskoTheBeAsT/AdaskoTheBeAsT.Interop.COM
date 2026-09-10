@@ -79,11 +79,7 @@ public class ComInteropEventSourceTest
         const int count = 256;
         using var listener = new CapturingEventListener(ComInteropEventSource.Log);
 
-        Parallel.For(0, count, _ =>
-        {
-            ComInteropEventSource.Log.HandleLeaked(sentinel);
-            listener.Events.Should().NotBeEmpty();
-        });
+        Parallel.For(0, count, _ => ComInteropEventSource.Log.HandleLeaked(sentinel));
 
         var matches = Array.FindAll(
             listener.Events,

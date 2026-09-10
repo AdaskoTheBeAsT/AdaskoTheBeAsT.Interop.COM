@@ -14,6 +14,59 @@ public class ActivationContextFailureTest
     private static string ManifestPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
 
     [Theory]
+    [InlineData(false, @"C:\", false)]
+    [InlineData(true, @"C:\", false)]
+    [InlineData(false, @"\\server\share", false)]
+    [InlineData(true, @"\\server\share", false)]
+    [InlineData(false, @"C:\", true)]
+    [InlineData(true, @"C:\", true)]
+    [InlineData(false, @"\\server\share", true)]
+    [InlineData(true, @"\\server\share", true)]
+    public void OperationsShouldRejectRootAssemblyPathAndCleanUpPreparedContexts(bool create, string assemblyPath, bool prepareFirstContext)
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            using var api = new FailingActivationContextApi();
+            var descriptors = new List<ComPathDescriptor>();
+            if (prepareFirstContext)
+            {
+                descriptors.Add(new ComPathDescriptor(AssemblyPath, ManifestPath));
+            }
+
+            descriptors.Add(new ComPathDescriptor(assemblyPath, ManifestPath));
+            var invoked = false;
+            Result result;
+            if (create)
+            {
+                var creation = Executor.Create(
+                    descriptors,
+                    () =>
+                    {
+                        invoked = true;
+                        return new object();
+                    },
+                    pumpPendingMessages: false,
+                    api);
+                creation.Value.Should().BeNull();
+                result = creation;
+            }
+            else
+            {
+                result = Executor.Execute(descriptors, () => invoked = true, pumpPendingMessages: false, api);
+            }
+
+            result.Success.Should().BeFalse();
+            var exception = result.Exception.Should().BeOfType<ArgumentException>().Which;
+            exception.ParamName.Should().Be("comPathDescriptor");
+            invoked.Should().BeFalse();
+            api.CreationCallCount.Should().Be(prepareFirstContext ? 1 : 0);
+            api.ActivationCallCount.Should().Be(0);
+            api.OutstandingReferenceCount.Should().Be(0);
+            api.ActiveCookies.Should().BeEmpty();
+        });
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
