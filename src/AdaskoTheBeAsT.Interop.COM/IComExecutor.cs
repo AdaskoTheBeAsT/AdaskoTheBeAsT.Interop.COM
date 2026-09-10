@@ -13,7 +13,18 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// <remarks>
 /// <para>
 /// New code should depend on this interface rather than on the static <see cref="Executor"/> class.
-/// The default implementation <see cref="ComExecutor"/> is stateless and should be registered as a singleton.
+/// The default implementation <see cref="ComExecutor"/> has an immutable pumping policy and can be registered as a singleton.
+/// </para>
+/// <para>
+/// Work runs on the calling thread; this library does not initialize COM or establish an STA.
+/// Supply the apartment required by your COM component. Create, use, and release handles on the same
+/// thread, in reverse creation order, and dispose nested handles before a callback or factory returns.
+/// </para>
+/// <para>
+/// Factories transfer exclusive ownership of their runtime callable wrapper (RCW) to the handle.
+/// Do not return a borrowed or shared RCW. Release uses <c>Marshal.FinalReleaseComObject</c>
+/// and invalidates all aliases to the returned RCW; it does not recursively release child RCWs.
+/// Configure <see cref="ComExecutor"/> with automatic pumping disabled when the host owns the message loop.
 /// </para>
 /// </remarks>
 #if NET8_0_OR_GREATER
@@ -65,6 +76,10 @@ public interface IComExecutor
     /// <typeparam name="T">The COM object type.</typeparam>
     /// <param name="comObjectHandle">The handle to release.</param>
     /// <returns>The outcome of the release.</returns>
+    /// <remarks>
+    /// Invalid thread or release order returns a failed result without releasing the object.
+    /// Retry on the creating thread after releasing nested handles or completing nested callbacks.
+    /// </remarks>
     Result Free<T>(ComObjectHandle<T> comObjectHandle)
         where T : class;
 }

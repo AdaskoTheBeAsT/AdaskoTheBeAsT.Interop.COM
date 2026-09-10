@@ -1,6 +1,6 @@
 # ADR-0010: Introduce `ComObjectHandle<T>` Lifetime API with Explicit Free
 
-- Status: Accepted — extended by [ADR-0012](0012-com-object-handle-idisposable.md)
+- Status: Accepted — extended by [ADR-0012](0012-com-object-handle-idisposable.md); thread-affinity details superseded by [ADR-0019](0019-safe-activation-context-cleanup.md)
 - Date: 2026-04-07
 - Deciders: @AdaskoTheBeAsT
 - Release: v2.1.0

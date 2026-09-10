@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 #if NET8_0_OR_GREATER
 using System.Runtime.Versioning;
 #endif
@@ -16,7 +17,11 @@ namespace AdaskoTheBeAsT.Interop.COM;
 /// </summary>
 /// <typeparam name="T">The COM object type.</typeparam>
 /// <remarks>
-/// Instances are thread-affine and should be used and released on the same thread that created them.
+/// Instances must be used and released on the creating thread, in reverse creation order.
+/// The handle exclusively owns the returned runtime callable wrapper (RCW). Release calls
+/// <c>Marshal.FinalReleaseComObject</c>, invalidating every managed alias to that RCW.
+/// Do not wrap a shared or borrowed COM object, or release the RCW independently.
+/// Message pumping during release follows the policy selected when the handle was created.
 /// A finalizer is provided as a diagnostic safety net only; failing to release the handle leaks native
 /// activation-context state and COM references, so always prefer deterministic disposal.
 /// </remarks>
@@ -27,18 +32,25 @@ public sealed class ComObjectHandle<T>
     : IDisposable
     where T : class
 {
+    private readonly Thread _creatingThread = Thread.CurrentThread;
+    private readonly uint _creatingNativeThreadId = NativeMethods.GetCurrentThreadId();
+
     internal ComObjectHandle(
         T comObject,
         IReadOnlyList<IntPtr> activationContextHandles,
-        IReadOnlyList<IntPtr> activationCookies)
+        IReadOnlyList<IntPtr> activationCookies,
+        bool pumpPendingMessages = true,
+        ActivationContextApi? activationContextApi = null)
     {
         ThrowHelper.ThrowIfNull(comObject, nameof(comObject));
         ThrowHelper.ThrowIfNull(activationContextHandles, nameof(activationContextHandles));
         ThrowHelper.ThrowIfNull(activationCookies, nameof(activationCookies));
 
         ComObject = comObject;
-        ActivationContextHandles = activationContextHandles;
-        ActivationCookies = activationCookies;
+        ActivationContextHandles = [.. activationContextHandles];
+        ActivationCookies = [.. activationCookies];
+        PumpPendingMessages = pumpPendingMessages;
+        ContextApi = activationContextApi ?? ActivationContextApi.Instance;
     }
 
     /// <summary>
@@ -73,7 +85,8 @@ public sealed class ComObjectHandle<T>
 
     /// <summary>
     /// Gets the COM object instance. It becomes <see langword="null"/> after <see cref="Dispose"/> or
-    /// <see cref="Executor.Free{T}(ComObjectHandle{T})"/> is called, and the handle should not be used afterwards.
+    /// <see cref="Executor.Free{T}(ComObjectHandle{T})"/> releases it, and the object should not be used afterwards.
+    /// A rejected wrong-thread or out-of-order release leaves the object unchanged.
     /// </summary>
     public T? ComObject { get; internal set; }
 
@@ -82,22 +95,29 @@ public sealed class ComObjectHandle<T>
     /// </summary>
     public bool IsReleased { get; private set; }
 
-    internal IReadOnlyList<IntPtr> ActivationContextHandles { get; private set; }
+    internal List<IntPtr> ActivationContextHandles { get; }
 
-    internal IReadOnlyList<IntPtr> ActivationCookies { get; private set; }
+    internal List<IntPtr> ActivationCookies { get; }
+
+    internal bool IsReleasing { get; set; }
+
+    internal bool PumpPendingMessages { get; }
+
+    internal ActivationContextApi ContextApi { get; }
 
     /// <summary>
     /// Releases the COM object and its associated activation contexts.
     /// Equivalent to <see cref="Executor.Free{T}(ComObjectHandle{T})"/>; the call is idempotent and must be
-    /// performed on the thread that created the handle.
+    /// performed on the creating thread, in reverse creation order.
     /// </summary>
     /// <remarks>
     /// Native deactivation or <c>Marshal.FinalReleaseComObject</c> can fail. Because
-    /// <see cref="IDisposable.Dispose"/> must not throw, a non-success <see cref="Result"/> returned by
+    /// this implementation of <see cref="IDisposable.Dispose"/> reports failures without throwing, a non-success <see cref="Result"/> returned by
     /// <see cref="Executor.Free{T}(ComObjectHandle{T})"/> is surfaced through
     /// <c>ComInteropEventSource.HandleReleaseFailed</c> (Event ID
     /// <c>ComInteropEventSource.HandleReleaseFailedEventId</c>), and via
-    /// <see cref="Debug.Fail(string)"/> when a debugger is attached.
+    /// <see cref="Debug.Fail(string)"/> when a debugger is attached. A rejected release leaves the handle
+    /// available for retry and does not suppress leak diagnostics.
     /// </remarks>
     public void Dispose()
     {
@@ -116,14 +136,34 @@ public sealed class ComObjectHandle<T>
             }
         }
 
-        GC.SuppressFinalize(this);
+        if (IsReleased)
+        {
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    internal void ValidateRelease()
+    {
+        if (!ReferenceEquals(Thread.CurrentThread, _creatingThread)
+            || NativeMethods.GetCurrentThreadId() != _creatingNativeThreadId)
+        {
+            throw new InvalidOperationException("The COM handle must be released on the thread that created it.");
+        }
+
+        if (IsReleasing)
+        {
+            throw new InvalidOperationException("The COM handle is already being released.");
+        }
     }
 
     internal void MarkReleased()
     {
         IsReleased = true;
         ComObject = default;
-        ActivationContextHandles = Array.Empty<IntPtr>();
-        ActivationCookies = Array.Empty<IntPtr>();
+        ActivationContextHandles.Clear();
+        ActivationCookies.Clear();
+#pragma warning disable S3971, CA1816 // Executor.Free is also an explicit release path, without calling Dispose.
+        GC.SuppressFinalize(this);
+#pragma warning restore S3971, CA1816
     }
 }

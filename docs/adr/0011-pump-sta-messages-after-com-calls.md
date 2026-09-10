@@ -1,6 +1,6 @@
 # ADR-0011: Pump Pending STA Windows Messages Around COM Calls
 
-- Status: Accepted
+- Status: Superseded by [ADR-0019](0019-safe-activation-context-cleanup.md)
 - Date: 2026-04-07
 - Deciders: @AdaskoTheBeAsT
 - Release: v2.1.0

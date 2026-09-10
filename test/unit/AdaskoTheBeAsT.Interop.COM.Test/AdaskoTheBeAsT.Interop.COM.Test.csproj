@@ -1,25 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net9.0;net8.0;net481;net48;net472;net471;net47;net462</TargetFrameworks>
+    <TargetFrameworks>net10.0;net9.0;net8.0;net481;net48;net472</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <!--
-    .NET Framework TFMs (net4.x) are forced to x86 because the .NET Framework
-    test host is natively 32-bit and the original sample NativeCOM.dll ships as x86.
-    .NET Core TFMs (net8/9/10) run under the 64-bit testhost.exe on the GitHub
-    runner, so we leave PlatformTarget unset (AnyCPU -> x64 on a 64-bit host) and
-    route them at the 64-bit NativeCOM.dll + x64 manifest instead.
-  -->
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <PlatformTarget>x86</PlatformTarget>
+  <!-- Explicit process architecture wins; preserve the historical defaults otherwise. -->
+  <PropertyGroup>
+    <NativeTestArchitecture Condition="'$(PlatformTarget)' == 'x86' OR '$(PlatformTarget)' == 'x64'">$(PlatformTarget)</NativeTestArchitecture>
+    <NativeTestArchitecture Condition="'$(NativeTestArchitecture)' == '' AND '$(RuntimeIdentifier)' == 'win-x86'">x86</NativeTestArchitecture>
+    <NativeTestArchitecture Condition="'$(NativeTestArchitecture)' == '' AND '$(RuntimeIdentifier)' == 'win-x64'">x64</NativeTestArchitecture>
+    <NativeTestArchitecture Condition="'$(NativeTestArchitecture)' == '' AND ('$(Platform)' == 'x86' OR '$(Platform)' == 'x64')">$(Platform)</NativeTestArchitecture>
+    <NativeTestArchitecture Condition="'$(NativeTestArchitecture)' == '' AND $(TargetFramework.StartsWith('net4'))">x86</NativeTestArchitecture>
+    <NativeTestArchitecture Condition="'$(NativeTestArchitecture)' == ''">x64</NativeTestArchitecture>
+    <PlatformTarget Condition="'$(PlatformTarget)' == '' OR '$(PlatformTarget)' == 'AnyCPU'">$(NativeTestArchitecture)</PlatformTarget>
+    <OutputPath>bin\$(NativeTestArchitecture)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(NativeTestArchitecture)\$(Configuration)\</IntermediateOutputPath>
+    <NativeProbeOutput>$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\$(NativeTestArchitecture)\native\</NativeProbeOutput>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\AdaskoTheBeAsT.Interop.COM\AdaskoTheBeAsT.Interop.COM.csproj" />
+    <ProjectReference Include="..\..\..\src\AdaskoTheBeAsT.Interop.COM\AdaskoTheBeAsT.Interop.COM.csproj"
+                      GlobalPropertiesToRemove="Platform;PlatformTarget;NativeTestArchitecture;RuntimeIdentifier" />
   </ItemGroup>
 
   <!--
@@ -32,32 +36,43 @@
     </Reference>
   </ItemGroup>
 
-  <!-- 32-bit native payload + manifest for .NET Framework TFMs -->
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+  <!-- Copy even when switching architectures in an existing output directory. -->
+  <ItemGroup Condition="'$(NativeTestArchitecture)' == 'x86'">
     <None Include="..\..\..\x86\Debug\NativeCOM.dll">
       <Link>NativeCOM.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <TargetPath>NativeCOM.dll</TargetPath>
     </None>
     <None Include="..\..\..\manifest\NativeCOM\NativeCOM.manifest">
       <Link>NativeCOM.manifest</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <TargetPath>NativeCOM.manifest</TargetPath>
     </None>
   </ItemGroup>
 
-  <!-- 64-bit native payload + manifest for .NET Core TFMs -->
-  <ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
+  <ItemGroup Condition="'$(NativeTestArchitecture)' == 'x64'">
     <None Include="..\..\..\x64\Debug\NativeCOM.dll">
       <Link>NativeCOM.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <TargetPath>NativeCOM.dll</TargetPath>
     </None>
     <None Include="..\..\..\manifest\NativeCOM\NativeCOM.x64.manifest">
       <Link>NativeCOM.manifest</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <TargetPath>NativeCOM.manifest</TargetPath>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(NativeProbeOutput)NativeLifetimeProbe.dll" Link="NativeLifetimeProbe.dll" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
+  <Target Name="BuildNativeLifetimeProbe" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(PlatformTarget)' != 'x86' AND '$(PlatformTarget)' != 'x64'"
+           Text="Native COM tests support only x86 and x64 test processes." />
+    <Error Condition="'$(RuntimeIdentifier)' != '' AND '$(RuntimeIdentifier)' != 'win-x86' AND '$(RuntimeIdentifier)' != 'win-x64'"
+           Text="Native COM tests support only win-x86 and win-x64 runtime identifiers." />
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\..\..\native\Build-NativeLifetimeProbe.ps1&quot; -Architecture $(NativeTestArchitecture) -OutputDirectory &quot;$(NativeProbeOutput).&quot;" />
+  </Target>
 
 </Project>
