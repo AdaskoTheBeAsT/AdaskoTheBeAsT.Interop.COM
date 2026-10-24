@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using AwesomeAssertions;
 using Xunit;
@@ -42,29 +38,20 @@ public class ComObjectHandleDisposeTest
     [Fact]
     public void FinalizerShouldEmitLeakEventOnEventSourceWhenNotDisposed()
     {
-        // Replace Trace.Listeners with a silent listener so Debug.Fail inside the finalizer
-        // cannot block the test runner with an assertion dialog.
-        var original = new TraceListener[Trace.Listeners.Count];
-        Trace.Listeners.CopyTo(original, 0);
-        Trace.Listeners.Clear();
-        try
-        {
-            using var capture = new CapturingEventListener(ComInteropEventSource.Log);
+        using var capture = new CapturingEventListener(ComInteropEventSource.Log);
 
-            AllocateAndAbandonHandle();
+        AllocateAndAbandonHandle();
 
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
 
-            capture.Events.Should().Contain(
-                e => e.EventId == ComInteropEventSource.HandleLeakedEventId);
-        }
-        finally
-        {
-            Trace.Listeners.AddRange(original);
-        }
+        capture.Events.Should().Contain(
+            e => e.EventId == ComInteropEventSource.HandleLeakedEventId
+                && e.Payload != null
+                && e.Payload.Count > 0
+                && string.Equals(e.Payload[0] as string, nameof(ComObjectHandleDisposeTest), StringComparison.Ordinal));
     }
 #pragma warning restore S1215
 
@@ -72,7 +59,7 @@ public class ComObjectHandleDisposeTest
     public void DisposeShouldReleaseComObjectAndActivationContexts()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var creation = Executor.Create(
             comAssemblyPath,
             manifestPath,
@@ -94,7 +81,7 @@ public class ComObjectHandleDisposeTest
     public void DisposeShouldBeIdempotent()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var creation = Executor.Create(
             comAssemblyPath,
             manifestPath,
@@ -114,7 +101,7 @@ public class ComObjectHandleDisposeTest
     public void UsingStatementShouldReleaseHandle()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var creation = Executor.Create(
             comAssemblyPath,
             manifestPath,
@@ -138,47 +125,13 @@ public class ComObjectHandleDisposeTest
     private static void AllocateAndAbandonHandle()
     {
         // Bypass Executor.Create — no real native resources are allocated, so the finalizer is safe to run.
-        _ = new ComObjectHandle<string>(
-            "fake-com-object",
+        _ = new ComObjectHandle<ComObjectHandleDisposeTest>(
+            new ComObjectHandleDisposeTest(),
             [],
             []);
     }
 #pragma warning restore CA2000
 #pragma warning restore IDISP004
-
-    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
-    {
-        var currentPath = AppContext.BaseDirectory;
-        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
-        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
-
-        return (comAssemblyPath, manifestPath);
-    }
-
-    private sealed class CapturingEventListener
-        : EventListener
-    {
-        private readonly EventSource _target;
-
-        public CapturingEventListener(EventSource target)
-        {
-            _target = target;
-            EnableEvents(target, EventLevel.Verbose);
-        }
-
-        public List<EventWrittenEventArgs> Events { get; } = [];
-
-        protected override void OnEventWritten(EventWrittenEventArgs eventData)
-        {
-            if (ReferenceEquals(eventData.EventSource, _target))
-            {
-                Events.Add(eventData);
-            }
-        }
-    }
 }
 #pragma warning restore IDISP016
 #pragma warning restore IDISP007

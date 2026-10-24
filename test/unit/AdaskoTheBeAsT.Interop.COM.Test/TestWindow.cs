@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
 // Delegate-based window-class registration is intentionally shared by all target frameworks.
+#pragma warning disable SA1121 // Use built-in type alias
 #pragma warning disable SYSLIB1054
 #pragma warning disable CA2216 // Windows must be destroyed on their creating thread, not the finalizer thread.
 internal sealed class TestWindow : IDisposable
@@ -159,3 +160,4 @@ internal sealed class TestWindow : IDisposable
 }
 #pragma warning restore CA2216
 #pragma warning restore SYSLIB1054
+#pragma warning restore SA1121 // Use built-in type alias

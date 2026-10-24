@@ -19,11 +19,13 @@
     <OutputPath>bin\$(NativeTestArchitecture)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(NativeTestArchitecture)\$(Configuration)\</IntermediateOutputPath>
     <NativeProbeOutput>$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\$(NativeTestArchitecture)\native\</NativeProbeOutput>
+    <LibraryGlobalPropertiesToRemove>PlatformTarget;NativeTestArchitecture;RuntimeIdentifier</LibraryGlobalPropertiesToRemove>
+    <LibraryGlobalPropertiesToRemove Condition="'$(Platform)' != '' AND '$(Platform)' != 'AnyCPU'">$(LibraryGlobalPropertiesToRemove);Platform</LibraryGlobalPropertiesToRemove>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\AdaskoTheBeAsT.Interop.COM\AdaskoTheBeAsT.Interop.COM.csproj"
-                      GlobalPropertiesToRemove="Platform;PlatformTarget;NativeTestArchitecture;RuntimeIdentifier" />
+                      GlobalPropertiesToRemove="$(LibraryGlobalPropertiesToRemove)" />
   </ItemGroup>
 
   <!--

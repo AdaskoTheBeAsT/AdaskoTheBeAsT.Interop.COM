@@ -1,6 +1,6 @@
 # ADR-0007: Multi-Target `netstandard2.0`, Modern .NET, and .NET Framework
 
-- Status: Accepted
+- Status: Superseded by [ADR-0021](0021-consolidate-supported-target-frameworks.md)
 - Date: 2025-08-10 (modern .NET), 2026-04-19 (.NET Framework 4.6.2-4.8.1)
 - Deciders: @AdaskoTheBeAsT
 - Release: v2.0.0 / v3.0.0

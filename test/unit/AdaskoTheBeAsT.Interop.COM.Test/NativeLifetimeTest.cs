@@ -4,6 +4,7 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable SA1121 // Use built-in type alias
 #pragma warning disable SYSLIB1054 // Built-in COM interface marshalling is not supported by LibraryImport.
 #pragma warning disable IDISP007 // Tests own the factory-created COM handles.
 #pragma warning disable IDISP016 // These assertions intentionally inspect released handles.
@@ -30,9 +31,9 @@ public class NativeLifetimeTest
         void OnReleased(uint threadId);
     }
 
-    private static string AssemblyPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.dll");
+    private static string AssemblyPath => TestPaths.AssemblyPath;
 
-    private static string ManifestPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
+    private static string ManifestPath => TestPaths.ManifestPath;
 
     [Theory]
     [InlineData(false)]
@@ -41,11 +42,11 @@ public class NativeLifetimeTest
     {
         TestWindow.OnStaThread(() =>
         {
-            var before = NativeMethods.GetDestroyedCount();
-            var owner = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.GetCurrentThreadId();
+            var before = SafeNativeMethods.GetDestroyedCount();
+            var owner = NativeMethods.GetCurrentThreadId();
             using var handle = CreateHandle();
             handle.ComObject!.Ping().Should().Be(0);
-            NativeMethods.GetDestroyedCount().Should().Be(before);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before);
 
             if (dispose)
             {
@@ -57,10 +58,10 @@ public class NativeLifetimeTest
             }
 
             handle.IsReleased.Should().BeTrue();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
-            NativeMethods.GetLastReleaseThreadId().Should().Be(owner);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetLastReleaseThreadId().Should().Be(owner);
             Executor.Free(handle).Success.Should().BeTrue();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
         });
     }
 
@@ -69,7 +70,7 @@ public class NativeLifetimeTest
     {
         TestWindow.OnStaThread(() =>
         {
-            var before = NativeMethods.GetDestroyedCount();
+            var before = SafeNativeMethods.GetDestroyedCount();
             using var handle = CreateHandle();
             var alias = handle.ComObject!;
 
@@ -77,7 +78,7 @@ public class NativeLifetimeTest
 
             Action useAlias = () => _ = alias.Ping();
             useAlias.Should().Throw<InvalidComObjectException>();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
         });
     }
 
@@ -86,7 +87,7 @@ public class NativeLifetimeTest
     {
         TestWindow.OnStaThread(() =>
         {
-            var before = NativeMethods.GetDestroyedCount();
+            var before = SafeNativeMethods.GetDestroyedCount();
             using var handle = CreateHandle();
             Result? release = null;
             var thread = new Thread(() => release = Executor.Free(handle));
@@ -94,10 +95,10 @@ public class NativeLifetimeTest
             thread.Join();
 
             release!.Success.Should().BeFalse();
-            NativeMethods.GetDestroyedCount().Should().Be(before);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before);
             handle.ComObject!.Ping().Should().Be(0);
             Executor.Free(handle).Success.Should().BeTrue();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
         });
     }
 
@@ -108,8 +109,8 @@ public class NativeLifetimeTest
     {
         TestWindow.OnStaThread(() =>
         {
-            var before = NativeMethods.GetDestroyedCount();
-            var owner = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.GetCurrentThreadId();
+            var before = SafeNativeMethods.GetDestroyedCount();
+            var owner = NativeMethods.GetCurrentThreadId();
             using var window = new TestWindow();
             using var handle = CreateHandle(pumpPendingMessages);
             var expectedContext = handle.ActivationContextHandles[0];
@@ -120,10 +121,10 @@ public class NativeLifetimeTest
             var callback = new ReleaseCallback(threadId =>
             {
                 callbackThread = threadId;
-                contextCaptured = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.GetCurrentActCtx(out callbackContext);
+                contextCaptured = NativeMethods.GetCurrentActCtx(out callbackContext);
                 if (contextCaptured && callbackContext != IntPtr.Zero)
                 {
-                    global::AdaskoTheBeAsT.Interop.COM.NativeMethods.ReleaseActCtx(callbackContext);
+                    NativeMethods.ReleaseActCtx(callbackContext);
                 }
 
                 reentrantRelease = Executor.Free(handle);
@@ -140,9 +141,9 @@ public class NativeLifetimeTest
             reentrantRelease.Success.Should().BeFalse();
             reentrantRelease.Exception.Should().BeOfType<InvalidOperationException>();
             handle.IsReleased.Should().BeTrue();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
             window.DeliveryCount.Should().Be(pumpPendingMessages ? 1 : 0);
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PumpPendingMessages();
+            NativeMethods.PumpPendingMessages();
             window.DeliveryCount.Should().Be(1);
             GC.KeepAlive(callback);
         });
@@ -153,7 +154,7 @@ public class NativeLifetimeTest
     {
         TestWindow.OnStaThread(() =>
         {
-            var before = NativeMethods.GetDestroyedCount();
+            var before = SafeNativeMethods.GetDestroyedCount();
             using var window = new TestWindow();
             using var handle = CreateHandle();
             Result? reentrantRelease = null;
@@ -167,7 +168,7 @@ public class NativeLifetimeTest
             reentrantRelease.Success.Should().BeFalse();
             reentrantRelease.Exception.Should().BeOfType<InvalidOperationException>();
             handle.IsReleased.Should().BeTrue();
-            NativeMethods.GetDestroyedCount().Should().Be(before + 1);
+            SafeNativeMethods.GetDestroyedCount().Should().Be(before + 1);
         });
     }
 
@@ -178,7 +179,7 @@ public class NativeLifetimeTest
             ManifestPath,
             () =>
             {
-                Marshal.ThrowExceptionForHR(NativeMethods.CreateLifetimeProbe(out var probe));
+                Marshal.ThrowExceptionForHR(SafeNativeMethods.CreateLifetimeProbe(out var probe));
                 return probe;
             },
             pumpPendingMessages);
@@ -201,7 +202,7 @@ public class NativeLifetimeTest
         public void OnReleased(uint threadId) => _callback(threadId);
     }
 
-    private static class NativeMethods
+    private static class SafeNativeMethods
     {
         [DllImport("NativeLifetimeProbe.dll", ExactSpelling = true)]
         internal static extern int CreateLifetimeProbe([MarshalAs(UnmanagedType.Interface)] out ILifetimeProbe probe);
@@ -216,3 +217,4 @@ public class NativeLifetimeTest
 #pragma warning restore IDISP016
 #pragma warning restore IDISP007
 #pragma warning restore SYSLIB1054
+#pragma warning restore SA1121 // Use built-in type alias

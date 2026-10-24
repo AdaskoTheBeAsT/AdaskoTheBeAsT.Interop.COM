@@ -4,6 +4,7 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable SA1121 // Use built-in type alias
 public class NativeArchitectureTest
 {
     [Theory]
@@ -35,3 +36,4 @@ public class NativeArchitectureTest
             .Should().Be(new IntPtr(IntPtr.Size == 4 ? 16 : 24));
     }
 }
+#pragma warning restore SA1121 // Use built-in type alias

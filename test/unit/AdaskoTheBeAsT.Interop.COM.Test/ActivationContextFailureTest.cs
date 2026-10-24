@@ -5,13 +5,14 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable SA1121 // Use built-in type alias
 #pragma warning disable IDISP007 // Tests own factory-created handles.
 #pragma warning disable IDISP016 // Tests inspect partial cleanup and retry state.
 public class ActivationContextFailureTest
 {
-    private static string AssemblyPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.dll");
+    private static string AssemblyPath => TestPaths.AssemblyPath;
 
-    private static string ManifestPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
+    private static string ManifestPath => TestPaths.ManifestPath;
 
     [Theory]
     [InlineData(false, @"C:\", false)]
@@ -205,6 +206,36 @@ public class ActivationContextFailureTest
         });
     }
 
+    [Fact]
+    public void FreeShouldRejectWhenGetCurrentActCtxFailsAndAllowRetry()
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            using var api = new FailingActivationContextApi();
+            var creation = Executor.Create(
+                [new ComPathDescriptor(AssemblyPath, ManifestPath)],
+                () => new NativeCOM.StringConcatenatorClass(),
+                pumpPendingMessages: false,
+                api);
+            creation.Success.Should().BeTrue();
+            using var handle = creation.Value!;
+            api.FailGetCurrentActCtx = true;
+
+            var failedRelease = Executor.Free(handle);
+
+            failedRelease.Success.Should().BeFalse();
+            failedRelease.Exception.Should().BeOfType<Win32Exception>();
+            handle.IsReleased.Should().BeFalse();
+            handle.ComObject!.ConcatStrings("still", " alive").Should().Be("still alive");
+
+            api.FailGetCurrentActCtx = false;
+            Executor.Free(handle).Success.Should().BeTrue();
+            handle.IsReleased.Should().BeTrue();
+            api.OutstandingReferenceCount.Should().Be(0);
+            api.ActiveCookies.Should().BeEmpty();
+        });
+    }
+
     private static ComPathDescriptor[] Descriptors()
         => [new(AssemblyPath, ManifestPath), new(AssemblyPath, ManifestPath)];
 
@@ -241,6 +272,8 @@ public class ActivationContextFailureTest
 
         internal int FailDeactivationCall { get; set; }
 
+        internal bool FailGetCurrentActCtx { get; set; }
+
         internal int CreationCallCount { get; private set; }
 
         internal int ActivationCallCount { get; private set; }
@@ -266,7 +299,7 @@ public class ActivationContextFailureTest
 
             foreach (var pair in _references)
             {
-                for (int count = 0; count < pair.Value; count++)
+                for (var count = 0; count < pair.Value; count++)
                 {
                     base.ReleaseActCtx(pair.Key);
                 }
@@ -320,6 +353,12 @@ public class ActivationContextFailureTest
 
         internal override bool GetCurrentActCtx(out IntPtr handle)
         {
+            if (FailGetCurrentActCtx)
+            {
+                handle = IntPtr.Zero;
+                return false;
+            }
+
             var success = base.GetCurrentActCtx(out handle);
             if (success && handle != IntPtr.Zero)
             {
@@ -354,3 +393,4 @@ public class ActivationContextFailureTest
 }
 #pragma warning restore IDISP016
 #pragma warning restore IDISP007
+#pragma warning restore SA1121 // Use built-in type alias

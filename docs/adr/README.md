@@ -14,7 +14,7 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0004](0004-static-executor-api.md) | Expose Functionality Through a Static `Executor` Class | Accepted | v1.0.0 |
 | [0005](0005-internal-native-methods-wrapper.md) | Encapsulate Win32 P/Invoke in an Internal `NativeMethods` | Accepted | v1.0.0 |
 | [0006](0006-strict-analyzer-stack.md) | Enforce a Strict Analyzer Stack with Warnings as Errors | Accepted | v1.0.0 |
-| [0007](0007-multi-target-frameworks.md) | Multi-Target `netstandard2.0`, Modern .NET, and .NET Framework | Accepted | v2.0.0 / v3.0.0 |
+| [0007](0007-multi-target-frameworks.md) | Multi-Target `netstandard2.0`, Modern .NET, and .NET Framework | Superseded by ADR-0021 | v2.0.0 / v3.0.0 |
 | [0008](0008-libraryimport-on-net8-plus.md) | Use `LibraryImport` Source Generator on .NET 8+ | Accepted | v2.0.0 |
 | [0009](0009-com-path-descriptor.md) | Introduce `ComPathDescriptor` for Multi-Context Activation | Accepted | v2.0.0 |
 | [0010](0010-com-object-handle-lifetime-api.md) | Introduce `ComObjectHandle<T>` Lifetime API with Explicit Free | Accepted | v2.1.0 |
@@ -28,6 +28,8 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0018](0018-eventsource-for-leaked-handles.md) | Diagnostic `EventSource` for Leaked `ComObjectHandle<T>` | Accepted | v3.0.0 |
 | [0019](0019-safe-activation-context-cleanup.md) | Enforce Activation-Context Lifetime and Bound Message Pumping | Accepted | v4.0.0 |
 | [0020](0020-host-owned-message-pumping.md) | Support Host-Owned Message Pumping and Explicit RCW Ownership | Accepted | v4.0.0 |
+| [0021](0021-consolidate-supported-target-frameworks.md) | Consolidate Supported Target Frameworks to Modern .NET and Supported .NET Framework | Accepted | v4.0.0 |
+| [0022](0022-explicit-intptr-and-analyzer-hygiene.md) | Preserve Explicit `IntPtr`/`UIntPtr` Win32 Signatures and Isolate Multi-Architecture Solution Builds | Accepted | v4.0.1 |
 
 ## Conventions
 

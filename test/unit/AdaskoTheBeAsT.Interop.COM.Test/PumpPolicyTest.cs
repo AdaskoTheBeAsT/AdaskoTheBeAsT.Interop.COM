@@ -6,9 +6,9 @@ namespace AdaskoTheBeAsT.Interop.COM.Test;
 #pragma warning disable IDISP007 // Tests own the handles returned by their local factories.
 public class PumpPolicyTest
 {
-    private static string AssemblyPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.dll");
+    private static string AssemblyPath => TestPaths.AssemblyPath;
 
-    private static string ManifestPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
+    private static string ManifestPath => TestPaths.ManifestPath;
 
     [Theory]
     [InlineData(false, false, false)]

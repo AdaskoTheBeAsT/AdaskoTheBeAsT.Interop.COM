@@ -18,7 +18,7 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 **Bring your DLL and a matching manifest.** `AdaskoTheBeAsT.Interop.COM` handles Windows activation contexts so you can use compatible COM components without registering them globally. Your application gets an explicit lifetime API; your deployment instructions lose a `regsvr32` step.
 
-> 🎉 **Version 4.0.0:** host-owned message pumping, stricter lifetime checks, and a focused framework lineup. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
+> 🎉 **Version 4.0.1:** host-owned message pumping, stricter lifetime checks, updated analyzer/test toolchains, and a focused framework lineup. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
 
 ## ✨ Why you'll love this
 
@@ -53,7 +53,7 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 The short version: Windows, a compatible .NET target, and native bits that match your process.
 
-| Requirement | Version 4.0.0 |
+| Requirement | Version 4.0.1 |
 | --- | --- |
 | Operating system | Windows only, including when called from a platform-neutral .NET target |
 | Modern .NET targets | `net8.0`, `net9.0`, `net10.0` |
@@ -71,7 +71,7 @@ The short version: Windows, a compatible .NET target, and native bits that match
 One package to add:
 
 ```powershell
-dotnet add package AdaskoTheBeAsT.Interop.COM --version 4.0.0
+dotnet add package AdaskoTheBeAsT.Interop.COM --version 4.0.1
 ```
 
 For a Windows-only modern .NET application, use a Windows-qualified target such as `net10.0-windows`. This also communicates the platform requirement to the compiler's platform compatibility analyzer.
@@ -325,7 +325,7 @@ Install the corresponding x86/x64 runtime before testing that architecture. Defa
 
 The quick path stays here. The deeper dives have their own homes:
 
-- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 4.0.0 and what changed in earlier releases.
+- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 4.0.1 and what changed in earlier releases.
 - 🚚 [Migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md): upgrade from 3.x to 4.0 or 2.x to 3.0 without guessing.
 - 🧩 [Advanced usage](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/advanced-usage.md): multiple manifests, DI decorators, testing, and STA scheduling.
 - 🏗️ [Native builds and architecture](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/native-builds.md): make the DLL, manifest, and interop assembly agree on x86/x64.

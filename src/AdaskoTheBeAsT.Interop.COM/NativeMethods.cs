@@ -5,6 +5,7 @@ using System.Security;
 namespace AdaskoTheBeAsT.Interop.COM;
 
 #pragma warning disable S101
+#pragma warning disable SA1121 // Use built-in type alias
 #if !NET8_0_OR_GREATER
 [SuppressUnmanagedCodeSecurity]
 internal static class NativeMethods
@@ -58,7 +59,7 @@ internal static class NativeMethods
 
     internal static void PumpPendingMessages()
     {
-        for (int count = 0; count < MaxMessagesPerPump && PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
+        for (var count = 0; count < MaxMessagesPerPump && PeekMessage(out var msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
         {
             if (msg.message == WmQuit)
             {
@@ -147,7 +148,7 @@ internal static partial class NativeMethods
 
     internal static void PumpPendingMessages()
     {
-        for (int count = 0; count < MaxMessagesPerPump && PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
+        for (var count = 0; count < MaxMessagesPerPump && PeekMessage(out var msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
         {
             if (msg.message == WmQuit)
             {
@@ -180,4 +181,5 @@ internal static partial class NativeMethods
     }
 }
 #endif
+#pragma warning restore SA1121 // Use built-in type alias
 #pragma warning restore S101

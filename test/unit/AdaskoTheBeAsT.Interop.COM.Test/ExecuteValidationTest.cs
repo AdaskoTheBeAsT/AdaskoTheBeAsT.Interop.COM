@@ -76,7 +76,7 @@ public class ExecuteValidationTest
     [Fact]
     public void ExecuteShouldReturnFailureResultWhenActionThrows()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var boom = new InvalidOperationException("boom");
 
         var result = Executor.Execute(
@@ -91,7 +91,7 @@ public class ExecuteValidationTest
     [Fact]
     public void ExecuteCollectionOverloadShouldRunAction()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
         string? output = null;
 
@@ -109,7 +109,7 @@ public class ExecuteValidationTest
     [Fact]
     public void ExecuteCollectionOverloadShouldReturnFailureResultWhenActionThrows()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
         var boom = new InvalidOperationException("boom-collection");
 
@@ -178,7 +178,7 @@ public class ExecuteValidationTest
     [Fact]
     public void CreateShouldReturnFailureResultWhenFactoryThrows()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var boom = new InvalidOperationException("factory-boom");
 
         var creation = Executor.Create<object>(
@@ -194,7 +194,7 @@ public class ExecuteValidationTest
     [Fact]
     public void CreateShouldReturnFailureResultWhenFactoryReturnsNull()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
 
         var creation = Executor.Create<object>(
             comAssemblyPath,
@@ -217,7 +217,7 @@ public class ExecuteValidationTest
     [Fact]
     public void FreeShouldReturnSuccessWhenHandleAlreadyReleased()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var creation = Executor.Create(
             comAssemblyPath,
             manifestPath,
@@ -227,17 +227,5 @@ public class ExecuteValidationTest
         var secondRelease = Executor.Free(creation.Value!);
 
         secondRelease.Success.Should().BeTrue();
-    }
-
-    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
-    {
-        var currentPath = AppContext.BaseDirectory;
-        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
-        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
-
-        return (comAssemblyPath, manifestPath);
     }
 }

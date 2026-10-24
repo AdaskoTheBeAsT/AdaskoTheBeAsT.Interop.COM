@@ -16,7 +16,7 @@ public class ComExecutorTest
     [Fact]
     public void ExecuteShouldDelegateToStaticExecutor()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var sut = new ComExecutor();
         string? output = null;
 
@@ -33,7 +33,7 @@ public class ComExecutorTest
     [Fact]
     public void CreateAndFreeShouldDelegateToStaticExecutor()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var sut = new ComExecutor();
 
         var creation = sut.Create(
@@ -53,7 +53,7 @@ public class ComExecutorTest
     [Fact]
     public void ExecuteCollectionOverloadShouldDelegateToStaticExecutor()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
         var sut = new ComExecutor();
         string? output = null;
@@ -71,7 +71,7 @@ public class ComExecutorTest
     [Fact]
     public void CreateCollectionOverloadShouldDelegateToStaticExecutor()
     {
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var descriptors = new[] { new ComPathDescriptor(comAssemblyPath, manifestPath) };
         var sut = new ComExecutor();
 
@@ -83,17 +83,5 @@ public class ComExecutorTest
         creation.Value.Should().NotBeNull();
 
         sut.Free(creation.Value).Success.Should().BeTrue();
-    }
-
-    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
-    {
-        var currentPath = AppContext.BaseDirectory;
-        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
-        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
-
-        return (comAssemblyPath, manifestPath);
     }
 }

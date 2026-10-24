@@ -8,6 +8,7 @@ using System.Runtime.Versioning;
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
+#pragma warning disable SA1121 // Use built-in type alias
 /// <summary>
 /// Represents a COM object together with the activation-context state that keeps it alive after
 /// <see cref="Executor.Create{T}(string,string,Func{T})"/> or
@@ -167,3 +168,4 @@ public sealed class ComObjectHandle<T>
 #pragma warning restore S3971, CA1816
     }
 }
+#pragma warning restore SA1121 // Use built-in type alias

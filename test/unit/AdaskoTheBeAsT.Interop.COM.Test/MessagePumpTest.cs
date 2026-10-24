@@ -5,6 +5,7 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable SA1121 // Use built-in type alias
 #pragma warning disable MA0204
 public partial class MessagePumpTest
 #pragma warning restore MA0204
@@ -18,12 +19,12 @@ public partial class MessagePumpTest
     [InlineData(-1)]
     public void PumpPendingMessagesShouldPreserveQuitAndExitCode(int exitCode)
     {
-        global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PostQuitMessage(exitCode);
+        NativeMethods.PostQuitMessage(exitCode);
         try
         {
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PumpPendingMessages();
+            NativeMethods.PumpPendingMessages();
 
-            var pending = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PeekMessage(
+            var pending = NativeMethods.PeekMessage(
                 out var message,
                 IntPtr.Zero,
                 0,
@@ -35,12 +36,12 @@ public partial class MessagePumpTest
         }
         finally
         {
-            _ = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PeekMessage(
+            _ = NativeMethods.PeekMessage(
                 out _,
                 IntPtr.Zero,
                 WmQuit,
                 WmQuit,
-                global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PM_REMOVE);
+                NativeMethods.PM_REMOVE);
         }
     }
 
@@ -50,17 +51,17 @@ public partial class MessagePumpTest
         TestWindow.OnStaThread(() =>
         {
             using var window = new TestWindow();
-            const int budget = global::AdaskoTheBeAsT.Interop.COM.NativeMethods.MaxMessagesPerPump;
-            for (int i = 0; i <= budget; i++)
+            const int budget = NativeMethods.MaxMessagesPerPump;
+            for (var i = 0; i <= budget; i++)
             {
                 window.Post();
             }
 
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PumpPendingMessages();
+            NativeMethods.PumpPendingMessages();
             window.DeliveryCount.Should().Be(budget);
             NativeMethods.PeekMessage(out _, IntPtr.Zero, 0, 0, PmNoRemove).Should().BeTrue();
 
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PumpPendingMessages();
+            NativeMethods.PumpPendingMessages();
             window.DeliveryCount.Should().Be(budget + 1);
             NativeMethods.PeekMessage(out _, IntPtr.Zero, 0, 0, PmNoRemove).Should().BeFalse();
         });
@@ -73,7 +74,7 @@ public partial class MessagePumpTest
         {
             using var window = new TestWindow();
             window.Post(wParam: 42, lParam: -7);
-            var (comAssemblyPath, manifestPath) = GetPaths();
+            var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
 
             var result = Executor.Execute(comAssemblyPath, manifestPath, () => { });
 
@@ -95,7 +96,7 @@ public partial class MessagePumpTest
             using var window = new TestWindow();
             window.Post(TestWindow.CharacterMessage, (uint)character);
 
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PumpPendingMessages();
+            NativeMethods.PumpPendingMessages();
 
             window.DeliveryCount.Should().Be(1);
             window.LastWParam.Should().Be(new UIntPtr((uint)character));
@@ -109,9 +110,9 @@ public partial class MessagePumpTest
         {
             const uint hostMessage = 0x8123;
             _ = NativeMethods.PeekMessage(out _, IntPtr.Zero, 0, 0, PmNoRemove);
-            NativeMethods.PostThreadMessage(
+            SafeNativeMethods.PostThreadMessage(
                 NativeMethods.GetCurrentThreadId(), hostMessage, new IntPtr(42), new IntPtr(-7)).Should().BeTrue();
-            var (comAssemblyPath, manifestPath) = GetPaths();
+            var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
             var executor = new ComExecutor(pumpPendingMessages: false);
 
             executor.Execute(comAssemblyPath, manifestPath, () => { }).Success.Should().BeTrue();
@@ -119,42 +120,21 @@ public partial class MessagePumpTest
             creation.Success.Should().BeTrue();
             creation.Value!.Dispose();
 
-            global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PeekMessage(
+            NativeMethods.PeekMessage(
                 out var message,
                 IntPtr.Zero,
                 hostMessage,
                 hostMessage,
-                global::AdaskoTheBeAsT.Interop.COM.NativeMethods.PM_REMOVE).Should().BeTrue();
+                NativeMethods.PM_REMOVE).Should().BeTrue();
             message.wParam.Should().Be(new UIntPtr(42));
             message.lParam.Should().Be(new IntPtr(-7));
         });
     }
 
-    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
-    {
-        var currentPath = AppContext.BaseDirectory;
-        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
-        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
-
-        return (comAssemblyPath, manifestPath);
-    }
-
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [SuppressUnmanagedCodeSecurity]
-    internal static partial class NativeMethods
+    internal static partial class SafeNativeMethods
     {
-        [LibraryImport("user32.dll", EntryPoint = "PeekMessageW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static partial bool PeekMessage(
-            out Msg lpMsg,
-            IntPtr hWnd,
-            uint wMsgFilterMin,
-            uint wMsgFilterMax,
-            uint wRemoveMsg);
-
         [LibraryImport("user32.dll", EntryPoint = "PostThreadMessageW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool PostThreadMessage(
@@ -162,36 +142,11 @@ public partial class MessagePumpTest
             uint msg,
             IntPtr wParam,
             IntPtr lParam);
-
-        [LibraryImport("kernel32.dll")]
-        internal static partial uint GetCurrentThreadId();
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct Msg
-        {
-            public readonly IntPtr Hwnd;
-            public readonly uint Message;
-            public readonly UIntPtr WParam;
-            public readonly IntPtr LParam;
-            public readonly uint Time;
-            public readonly int X;
-            public readonly int Y;
-            public readonly uint LPrivate;
-        }
     }
 #else
     [SuppressUnmanagedCodeSecurity]
-    internal static class NativeMethods
+    internal static class SafeNativeMethods
     {
-        [DllImport("user32.dll", EntryPoint = "PeekMessageW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool PeekMessage(
-            out Msg lpMsg,
-            IntPtr hWnd,
-            uint wMsgFilterMin,
-            uint wMsgFilterMax,
-            uint wRemoveMsg);
-
         [DllImport("user32.dll", EntryPoint = "PostThreadMessageW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool PostThreadMessage(
@@ -199,22 +154,7 @@ public partial class MessagePumpTest
             uint msg,
             IntPtr wParam,
             IntPtr lParam);
-
-        [DllImport("kernel32.dll")]
-        internal static extern uint GetCurrentThreadId();
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct Msg
-        {
-            public readonly IntPtr Hwnd;
-            public readonly uint Message;
-            public readonly UIntPtr WParam;
-            public readonly IntPtr LParam;
-            public readonly uint Time;
-            public readonly int X;
-            public readonly int Y;
-            public readonly uint LPrivate;
-        }
     }
 #endif
 }
+#pragma warning restore SA1121 // Use built-in type alias
