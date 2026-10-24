@@ -6,6 +6,20 @@ Dates shown for historical releases refer to repository tags, not NuGet publicat
 
 See the [migration guide](MIGRATION.md) for required upgrade steps and the [README](README.md) for current usage.
 
+## [4.0.1]
+
+### Fixed
+
+- Preserve `Platform=AnyCPU` on the test project's `ProjectReference` during `AnyCPU` solution builds so MSBuild evaluates `AdaskoTheBeAsT.Interop.COM` once instead of twice in parallel, preventing `NU5026` `GeneratePackageOnBuild` races during `--no-incremental` rebuilds.
+- Populate NuGet `<PackageReleaseNotes>` metadata in `AdaskoTheBeAsT.Interop.COM.csproj`.
+
+### Build, tests, and documentation
+
+- Update the SDK selected by `global.json` to `10.0.402`.
+- Update analyzer and test dependencies (`StyleCop.Analyzers 1.3.151-beta`, `SonarAnalyzer.CSharp 10.35.0.4138`, `Meziantou.Analyzer 3.0.316`, `AdaskoTheBeAsT.CodeCracker.CSharp 1.1.0.270`, `Microsoft.CodeAnalysis.NetAnalyzers 10.0.402`, `Microsoft.VisualStudio.Threading.Analyzers 18.12.1`, `Roslynator.* 5.0.1`, `Microsoft.NET.Test.Sdk 18.11.0`, `Microsoft.Testing.Extensions.GitHubActionsReport 2.5.1`, `Moq 4.21.0`, `xunit.v3 4.0.2`, `xunit.analyzers 2.2.0`, `xunit.runner.visualstudio 4.0.1`) and satisfy all newly enabled analyzer diagnostics (`SA1121`, `CC0105`, `CC0001`, `CA1060`, `S2094`).
+- Consolidate shared test helpers (`TestPaths`, `CapturingEventListener`) and expand unit tests for `ActCtxWrongSizeException` binary serialization on .NET Framework and `Executor.ValidateReleaseOrder` edge cases.
+- Add [ADR-0021](docs/adr/0021-consolidate-supported-target-frameworks.md) and [ADR-0022](docs/adr/0022-explicit-intptr-and-analyzer-hygiene.md).
+
 ## [4.0.0]
 
 ### Breaking changes
@@ -80,6 +94,7 @@ Older README and ADR entries use version labels that do not line up consistently
 
 The [architecture decision index](docs/adr/README.md) provides additional historical context.
 
+[4.0.1]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v2.1.0...v3.0.0
 [2.1.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/releases/tag/v2.1.0

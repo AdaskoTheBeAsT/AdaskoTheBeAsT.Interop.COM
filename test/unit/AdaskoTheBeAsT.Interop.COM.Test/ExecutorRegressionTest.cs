@@ -5,13 +5,14 @@ using Xunit;
 
 namespace AdaskoTheBeAsT.Interop.COM.Test;
 
+#pragma warning disable SA1121 // Use built-in type alias
 #pragma warning disable IDISP016 // Tests inspect handles after explicit release.
 #pragma warning disable IDISP007 // These tests own and explicitly dispose factory-created handles.
 public class ExecutorRegressionTest
 {
-    private static string AssemblyPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.dll");
+    private static string AssemblyPath => TestPaths.AssemblyPath;
 
-    private static string ManifestPath => Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
+    private static string ManifestPath => TestPaths.ManifestPath;
 
     [Fact]
     public void ExecuteShouldRejectNullActionBeforeCreatingContext()
@@ -371,6 +372,44 @@ public class ExecutorRegressionTest
 
 #pragma warning restore SCS0018, SEC0116
 
+    [Fact]
+    public void FreeShouldSucceedWhenHandleHasNoActivationCookies()
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            using var handle = new ComObjectHandle<object>(
+                new object(),
+                [],
+                [],
+                pumpPendingMessages: false);
+
+            var release = Executor.Free(handle);
+
+            release.Success.Should().BeTrue();
+            handle.IsReleased.Should().BeTrue();
+        });
+    }
+
+    [Fact]
+    public void FreeShouldRejectHandleWhenThreadCookieStackIsSmallerThanHandleCookies()
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            using var handle = new ComObjectHandle<object>(
+                new object(),
+                [new IntPtr(1)],
+                [new IntPtr(1)],
+                pumpPendingMessages: false);
+
+            var release = Executor.Free(handle);
+
+            release.Success.Should().BeFalse();
+            release.Exception.Should().BeOfType<InvalidOperationException>();
+            handle.IsReleased.Should().BeFalse();
+            handle.MarkReleased();
+        });
+    }
+
     private static ComObjectHandle<NativeCOM.StringConcatenatorClass> CreateComHandle()
     {
         var creation = Executor.Create(AssemblyPath, ManifestPath, () => new NativeCOM.StringConcatenatorClass());
@@ -381,3 +420,4 @@ public class ExecutorRegressionTest
 }
 #pragma warning restore IDISP016
 #pragma warning restore IDISP007
+#pragma warning restore SA1121 // Use built-in type alias

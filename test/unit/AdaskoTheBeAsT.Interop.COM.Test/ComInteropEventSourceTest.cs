@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.Tracing;
 using AwesomeAssertions;
 using Xunit;
@@ -87,28 +86,5 @@ public class ComInteropEventSourceTest
                 && e.Payload is { Count: > 0 }
                 && string.Equals(e.Payload[0] as string, sentinel, StringComparison.Ordinal));
         matches.Should().HaveCount(count);
-    }
-
-    private sealed class CapturingEventListener
-        : EventListener
-    {
-        private readonly EventSource _target;
-        private readonly ConcurrentQueue<EventWrittenEventArgs> _events = new();
-
-        public CapturingEventListener(EventSource target)
-        {
-            _target = target;
-            EnableEvents(target, EventLevel.Verbose);
-        }
-
-        public EventWrittenEventArgs[] Events => _events.ToArray();
-
-        protected override void OnEventWritten(EventWrittenEventArgs eventData)
-        {
-            if (ReferenceEquals(eventData.EventSource, _target))
-            {
-                _events.Enqueue(eventData);
-            }
-        }
     }
 }

@@ -10,6 +10,7 @@ using System.Runtime.Versioning;
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
+#pragma warning disable SA1121 // Use built-in type alias
 /// <summary>
 /// Provides helpers for activating registration-free COM components, executing work inside their activation
 /// contexts, and explicitly managing longer-lived COM object lifetimes on the current thread.
@@ -448,7 +449,7 @@ public static class Executor
             throw new InvalidOperationException("Activation contexts must be released on the creating thread in reverse order.");
         }
 
-        for (int i = 0; i < cookies.Count; i++)
+        for (var i = 0; i < cookies.Count; i++)
         {
             if (stack[stack.Count - cookies.Count + i] != cookies[i])
             {
@@ -513,7 +514,7 @@ public static class Executor
 
     private static void ReleaseActivationContexts(List<IntPtr> activationContextHandles, ActivationContextApi contextApi)
     {
-        for (int i = activationContextHandles.Count - 1; i >= 0; i--)
+        for (var i = activationContextHandles.Count - 1; i >= 0; i--)
         {
             contextApi.ReleaseActCtx(activationContextHandles[i]);
         }
@@ -564,3 +565,4 @@ public static class Executor
         return cookie;
     }
 }
+#pragma warning restore SA1121 // Use built-in type alias

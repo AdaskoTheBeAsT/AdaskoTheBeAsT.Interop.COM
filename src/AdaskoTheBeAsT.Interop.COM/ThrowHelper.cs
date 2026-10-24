@@ -5,8 +5,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 
 /// <summary>
 /// Internal argument-validation helper. Uses <c>ArgumentNullException.ThrowIfNull</c> when available
-/// (net8.0+) and falls back to the classic <c>if-null/throw</c> pattern on older TFMs (netstandard2.0,
-/// .NET Framework).
+/// (net8.0+) and falls back to the classic <c>if-null/throw</c> pattern on .NET Framework.
 /// </summary>
 internal static class ThrowHelper
 {

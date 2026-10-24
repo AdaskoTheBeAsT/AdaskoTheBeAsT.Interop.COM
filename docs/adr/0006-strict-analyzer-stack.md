@@ -1,7 +1,7 @@
 # ADR-0006: Enforce a Strict Analyzer Stack with Warnings as Errors
 
-- Status: Accepted
-- Date: 2023-12-09 (initial), reaffirmed 2025-01-19 (`f78fcb2`, "fix code smells") and 2026-04-07 (`5fa56fa`)
+- Status: Accepted — extended by [ADR-0022](0022-explicit-intptr-and-analyzer-hygiene.md)
+- Date: 2023-12-09 (initial), reaffirmed 2025-01-19 (`f78fcb2`, "fix code smells"), 2026-04-07 (`5fa56fa`), and 2026-10-24 (v4.0.1)
 - Deciders: @AdaskoTheBeAsT
 - Release: v1.0.0+
 - Related commit(s): `fb360c4`, `f78fcb2`, `5fa56fa`

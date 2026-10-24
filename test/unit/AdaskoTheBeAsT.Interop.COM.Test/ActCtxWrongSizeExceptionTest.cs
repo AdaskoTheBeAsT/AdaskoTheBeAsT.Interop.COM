@@ -1,3 +1,6 @@
+#if !NET8_0_OR_GREATER
+using System.Runtime.Serialization;
+#endif
 using AwesomeAssertions;
 using Xunit;
 
@@ -35,4 +38,33 @@ public class ActCtxWrongSizeExceptionTest
         sut.Message.Should().Be(message);
         sut.InnerException.Should().BeSameAs(inner);
     }
+
+#if !NET8_0_OR_GREATER
+    [Fact]
+    public void SerializationConstructorShouldRoundTripMessageAndInnerException()
+    {
+        const string message = "wrong size";
+        var inner = new InvalidOperationException("inner");
+        var original = new ActCtxWrongSizeException(message, inner);
+        var info = new SerializationInfo(typeof(ActCtxWrongSizeException), new FormatterConverter());
+        var context = new StreamingContext(StreamingContextStates.All);
+        original.GetObjectData(info, context);
+
+        var sut = new SerializableActCtxWrongSizeException(info, context);
+
+        sut.Message.Should().Be(message);
+        sut.InnerException.Should().BeSameAs(inner);
+    }
+
+#pragma warning disable CA1032, RCS1194, S3925 // Test helper exists only to invoke the protected serialization constructor.
+    [Serializable]
+    private sealed class SerializableActCtxWrongSizeException : ActCtxWrongSizeException
+    {
+        public SerializableActCtxWrongSizeException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
+#pragma warning restore CA1032, RCS1194, S3925
+#endif
 }

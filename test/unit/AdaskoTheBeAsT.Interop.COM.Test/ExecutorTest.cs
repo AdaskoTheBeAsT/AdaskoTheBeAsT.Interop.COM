@@ -9,7 +9,7 @@ public class ExecutorTest
     public void AddStringsTest()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         const string str1 = "Hello";
         const string str2 = "World!";
         string? output = null;
@@ -33,7 +33,7 @@ public class ExecutorTest
     public void CreateAndFreeTest()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
 
         // Act
         var creation = Executor.Create(
@@ -64,7 +64,7 @@ public class ExecutorTest
     public void CreateWithCollectionOverloadShouldKeepActivationStateUntilFree()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var descriptors = new[]
         {
             new ComPathDescriptor(comAssemblyPath, manifestPath),
@@ -97,7 +97,7 @@ public class ExecutorTest
     public void CreateShouldFailWhenFactoryReturnsNull()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
 
         // Act
         var creation = Executor.Create<NativeCOM.StringConcatenatorClass>(
@@ -116,7 +116,7 @@ public class ExecutorTest
     public void FreeShouldBeIdempotent()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
         var creation = Executor.Create(
             comAssemblyPath,
             manifestPath,
@@ -138,7 +138,7 @@ public class ExecutorTest
     public void CreateShouldThrowWhenFactoryIsNull()
     {
         // Arrange
-        var (comAssemblyPath, manifestPath) = GetPaths();
+        var (comAssemblyPath, manifestPath) = TestPaths.GetPaths();
 
         // Act
         var act = () => Executor.Create<NativeCOM.StringConcatenatorClass>(comAssemblyPath, manifestPath, null!);
@@ -155,17 +155,5 @@ public class ExecutorTest
 
         // Assert
         act.Should().Throw<ArgumentNullException>().WithParameterName("comObjectHandle");
-    }
-
-    private static (string ComAssemblyPath, string ManifestPath) GetPaths()
-    {
-        var currentPath = AppContext.BaseDirectory;
-        var comAssemblyPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.dll"));
-        var manifestPath = Path.GetFullPath(Path.Combine(currentPath, "NativeCOM.manifest"));
-
-        File.Exists(comAssemblyPath).Should().BeTrue();
-        File.Exists(manifestPath).Should().BeTrue();
-
-        return (comAssemblyPath, manifestPath);
     }
 }

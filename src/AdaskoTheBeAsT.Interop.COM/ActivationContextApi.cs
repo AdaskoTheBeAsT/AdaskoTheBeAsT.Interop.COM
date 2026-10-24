@@ -2,6 +2,7 @@ using System;
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
+#pragma warning disable SA1121 // Use built-in type alias
 // An operation-scoped native boundary permits deterministic failure tests without global hooks.
 internal class ActivationContextApi
 {
@@ -18,3 +19,4 @@ internal class ActivationContextApi
 
     internal virtual void ReleaseActCtx(IntPtr handle) => NativeMethods.ReleaseActCtx(handle);
 }
+#pragma warning restore SA1121 // Use built-in type alias
