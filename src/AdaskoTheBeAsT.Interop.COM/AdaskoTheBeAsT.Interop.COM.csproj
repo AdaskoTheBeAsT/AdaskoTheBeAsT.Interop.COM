@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM</PackageProjectUrl>
     <Copyright>Adam "AdaskoTheBeAsT" Pluciński</Copyright>
     <PackageTags>COM;Interop</PackageTags>
-    <PackageReleaseNotes>See CHANGELOG.md and MIGRATION.md in the repository for v4.0.1 release notes and upgrade guidance: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>See CHANGELOG.md and MIGRATION.md in the repository for v4.1.0 release notes and upgrade guidance: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

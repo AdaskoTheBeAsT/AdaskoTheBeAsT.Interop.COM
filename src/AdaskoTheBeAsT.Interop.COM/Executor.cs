@@ -421,8 +421,8 @@ public static class Executor
     {
         foreach (var comPathDescriptor in comPathDescriptors)
         {
-            var ac = PrepareContext(comPathDescriptor);
-            var hActCtx = CreateContext(ac, contextApi);
+            var ac = PrepareContext(comPathDescriptor, out var fullAssemblyPath);
+            var hActCtx = CreateContext(ac, fullAssemblyPath, contextApi);
             hActCtxs.Add(hActCtx);
         }
     }
@@ -488,7 +488,7 @@ public static class Executor
                 var index = cookies.Count - 1;
                 if (!contextApi.DeactivateActCtx(cookies[index]))
                 {
-                    throw new Win32Exception();
+                    throw CreateWin32Exception(contextApi.ConsumeLastError());
                 }
 
                 cookies.RemoveAt(index);
@@ -520,7 +520,7 @@ public static class Executor
         }
     }
 
-    private static ActCtx PrepareContext(ComPathDescriptor comPathDescriptor)
+    private static ActCtx PrepareContext(ComPathDescriptor comPathDescriptor, out string fullAssemblyPath)
     {
         var ac = default(ActCtx);
         ac.cbSize = Marshal.SizeOf<ActCtx>();
@@ -535,19 +535,20 @@ public static class Executor
                     ac.cbSize));
         }
 
-        ac.lpAssemblyDirectory = Path.GetDirectoryName(Path.GetFullPath(comPathDescriptor.ComAssemblyPath))
+        fullAssemblyPath = Path.GetFullPath(comPathDescriptor.ComAssemblyPath);
+        ac.lpAssemblyDirectory = Path.GetDirectoryName(fullAssemblyPath)
             ?? throw new ArgumentException("COM assembly path must have a containing directory.", nameof(comPathDescriptor));
         ac.lpSource = Path.GetFullPath(comPathDescriptor.ComManifestPath);
         ac.dwFlags = NativeMethods.ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID;
         return ac;
     }
 
-    private static IntPtr CreateContext(ActCtx actCtx, ActivationContextApi contextApi)
+    private static IntPtr CreateContext(ActCtx actCtx, string fullAssemblyPath, ActivationContextApi contextApi)
     {
-        var hActCtx = contextApi.CreateActCtx(ref actCtx);
+        var hActCtx = contextApi.CreateActCtx(ref actCtx, fullAssemblyPath, out var errorCode);
         if (hActCtx == (IntPtr)(-1))
         {
-            throw new Win32Exception();
+            throw CreateWin32Exception(errorCode);
         }
 
         return hActCtx;
@@ -558,11 +559,14 @@ public static class Executor
         var stack = _activeCookies ??= [];
         if (!contextApi.ActivateActCtx(hActCtx, out var cookie))
         {
-            throw new Win32Exception();
+            throw CreateWin32Exception(contextApi.ConsumeLastError());
         }
 
         stack.Add(cookie);
         return cookie;
     }
+
+    private static Win32Exception CreateWin32Exception(int errorCode)
+        => errorCode == 0 ? new Win32Exception() : new Win32Exception(errorCode);
 }
 #pragma warning restore SA1121 // Use built-in type alias

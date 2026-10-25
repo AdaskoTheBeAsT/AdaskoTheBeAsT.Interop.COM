@@ -18,11 +18,12 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 **Bring your DLL and a matching manifest.** `AdaskoTheBeAsT.Interop.COM` handles Windows activation contexts so you can use compatible COM components without registering them globally. Your application gets an explicit lifetime API; your deployment instructions lose a `regsvr32` step.
 
-> 🎉 **Version 4.0.1:** host-owned message pumping, stricter lifetime checks, updated analyzer/test toolchains, and a focused framework lineup. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
+> 🎉 **Version 4.1.0:** automatic in-process COM class-factory fallback (`DllGetClassObject` + `combase!CoRegisterClassObject`) for **Windows Nano Server 2025 (`ltsc2025`)** x86 and x64 containers where Side-by-Side (`CreateActCtxW`) is absent, plus host-owned message pumping, strict lifetime checks, and modern analyzer/test toolchains. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
 
 ## ✨ Why you'll love this
 
 - 📦 **Deployment without the registration ceremony.** Activate one or more manifests without registering the COM classes globally.
+- 🐳 **Works on Windows Nano Server 2025 (`ltsc2025`).** Automatically falls back to manifest-driven `DllGetClassObject` + `combase!CoRegisterClassObject` registration when the OS omits the Side-by-Side (`sxs.dll`) subsystem.
 - 🧹 **A familiar `using` block.** `ComObjectHandle<T>` gives an exclusively owned COM object an explicit lifetime. Prefer `Free` when you need to inspect the cleanup result.
 - 🧩 **DI-friendly, container-optional.** Inject `IComExecutor`, mock it in tests, or use the existing static `Executor`. No separate DI package to hunt down.
 - 🧵 **Your thread stays your thread.** Work runs synchronously where you call it. No surprise background thread or apartment switch.
@@ -30,7 +31,7 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 - 🔎 **Leaks don't have to be silent.** Event-source diagnostics expose leaked handles and failed disposal in Debug and Release builds.
 - 🪶 **Small package, broad reach.** One AnyCPU managed assembly, modern .NET and .NET Framework targets, and no additional runtime package dependencies.
 
-> **Small library, clear boundaries.** This package does not generate interop assemblies, register COM servers, initialize COM, create an STA thread, or replace your application's message loop. You supply the native DLL, its dependencies, a matching manifest, and the apartment your component requires.
+> **Small library, clear boundaries.** This package does not generate interop assemblies, register COM servers, initialize COM (except when the Nano Server fallback auto-initializes MTA on an uninitialized thread), create an STA thread, or replace your application's message loop. You supply the native DLL, its dependencies, a matching manifest, and the apartment your component requires.
 
 ## 🗺️ Find your way
 
@@ -43,6 +44,7 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 - 🧵 [Lifetime and threading rules](#lifetime-and-threading-rules)
 - 🪟 [Message processing](#message-processing)
 - 📜 [Manifests and deployment](#manifests-and-deployment)
+- 🐳 [Windows Nano Server 2025 and headless containers](#windows-nano-server-2025)
 - 🩺 [Diagnostics and troubleshooting](#diagnostics-and-troubleshooting)
 - 🧪 [Build and test](#build-and-test)
 - 📚 [Further documentation](#further-documentation)
@@ -53,14 +55,14 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 The short version: Windows, a compatible .NET target, and native bits that match your process.
 
-| Requirement | Version 4.0.1 |
+| Requirement | Version 4.1.0 |
 | --- | --- |
-| Operating system | Windows only, including when called from a platform-neutral .NET target |
+| Operating system | Windows only (Desktop, Server Core, full Windows Server, and Windows Nano Server 2025 via automatic fallback) |
 | Modern .NET targets | `net8.0`, `net9.0`, `net10.0` |
 | .NET Framework targets | `net472`, `net48`, `net481` |
 | Process architecture | x86 or x64, matching the native COM DLL and its dependencies |
 | COM metadata | A managed interop assembly or equivalent COM interface declarations |
-| Apartment | Supplied by the caller; STA when required by the COM component |
+| Apartment | Supplied by the caller (`STA` on desktop/Server Core when required by the component; `MTA` on headless Nano Server) |
 
 **4.0 removes `netstandard2.0`, `net462`, `net47`, and `net471` package assets.** Consumers on those targets must retarget or remain on a compatible earlier package version. The managed library being AnyCPU does not make a native COM DLL architecture-neutral.
 
@@ -71,7 +73,7 @@ The short version: Windows, a compatible .NET target, and native bits that match
 One package to add:
 
 ```powershell
-dotnet add package AdaskoTheBeAsT.Interop.COM --version 4.0.1
+dotnet add package AdaskoTheBeAsT.Interop.COM --version 4.1.0
 ```
 
 For a Windows-only modern .NET application, use a Windows-qualified target such as `net10.0-windows`. This also communicates the platform requirement to the compiler's platform compatibility analyzer.
@@ -258,6 +260,90 @@ For inspecting native COM metadata, use the vendor's IDL/type library or Windows
 
 See [native builds and architecture](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/native-builds.md) for interop generation and x86/x64 deployment.
 
+<a id="windows-nano-server-2025"></a>
+
+## 🐳 Windows Nano Server 2025 and headless containers
+
+Running registration-free COM inside a minimal **Windows Nano Server 2025 (`ltsc2025`)** container hits three OS-level walls that do not exist on Windows Desktop or Windows Server Core. Starting in **version 4.1.0**, `AdaskoTheBeAsT.Interop.COM` detects this environment automatically and switches to an in-process COM class-factory fallback ([ADR-0023](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/0023-nanoserver-inproc-class-factory-fallback.md)).
+
+### 1. Why SxS activation contexts (`CreateActCtxW`) fail on Nano Server (`ERROR_INVALID_FUNCTION = 1`)
+
+On full Windows and Server Core, registration-free COM works through the Windows Side-by-Side (SxS) subsystem (`kernel32!CreateActCtxW`, `ActivateActCtx`, `DeactivateActCtx`, and `ReleaseActCtx`).
+
+On **Windows Nano Server 2025 (`mcr.microsoft.com/windows/nanoserver:ltsc2025`)**:
+
+- `KernelBase.dll` exports `CreateActCtxW`, but its implementation immediately checks `IsCreateActCtxWWorkerPresent()`, which queries the process `PEB->ApiSetMap` for the extension API set `ext-ms-win-kernel32-sidebyside-l1-1-0.dll`.
+- In Nano Server's kernel-mapped `C:\Windows\System32\apisetschema.dll`, the `ext-ms-win-kernel32-sidebyside-l1-1-0` entry has **zero host targets** because the SxS user-mode engine (`sxs.dll`) and CSRSS server module (`sxssrv.dll`) are omitted from the image.
+- Consequently, `CreateActCtxW` returns `INVALID_HANDLE_VALUE` (`-1`) with Win32 error **`1` (`ERROR_INVALID_FUNCTION`, `"Incorrect function."`)**. Dropping `sxs.dll` into the application folder does not bypass this check because `PEB->ApiSetMap` is sealed by the kernel at process creation.
+
+### 2. How the automatic `DllGetClassObject` + `CoRegisterClassObject` fallback works
+
+Even though Nano Server lacks SxS and global `HKCR\CLSID` registry hives, `C:\Windows\System32\combase.dll` (and `C:\Windows\SysWOW64\combase.dll` on x86) retains its full **in-process class-object registration table** (`CoRegisterClassObject` and `CoRevokeClassObject`).
+
+When `CreateActCtxW` fails with `ERROR_INVALID_FUNCTION (1)`, `ERROR_NOT_SUPPORTED (50)`, or `ERROR_CALL_NOT_IMPLEMENTED (120)`, `AdaskoTheBeAsT.Interop.COM` transparently switches to its manifest-driven in-process fallback:
+
+1. **Manifest parsing (`CreateActCtx`)**: Parses `<file>` and `<comClass clsid="{...}"/>` declarations (plus any nested `<dependentAssembly>` manifests) directly from the `.manifest` XML using `XmlReader` (`DtdProcessing.Prohibit`, `XmlResolver = null`) and resolves each COM server DLL path relative to the manifest's `lpAssemblyDirectory` or the `ComPathDescriptor` assembly path.
+2. **In-process factory registration (`ActivateActCtx`)**: Loads each target COM server DLL via `LoadLibraryExW(..., LOAD_WITH_ALTERED_SEARCH_PATH)`, resolves its exported `DllGetClassObject` entry point via `GetProcAddress`, requests the `IClassFactory` pointer for each `<comClass>` CLSID (`IID_IClassFactory`, falling back to `IID_IUnknown`), and registers that factory in the current process via `combase!CoRegisterClassObject(ref clsid, classFactory, CLSCTX_INPROC_SERVER, REGCLS_MULTIPLEUSE, out uint token)`.
+3. **Zero-code-change instantiation**: Inside your `Execute` callback or `Create` factory, standard managed `new MyComClass()` or `Activator.CreateInstance(Type.GetTypeFromCLSID(...))` calls invoke `CoCreateInstance(..., CLSCTX_INPROC_SERVER, ...)`, which resolves the registered `IClassFactory` directly from `combase.dll`'s in-process table without touching SxS or the Windows Registry.
+4. **Revocation and lifetime safety (`DeactivateActCtx` / `Free` / `Dispose`)**: On scope exit or handle disposal, registered class objects are revoked in reverse order via `CoRevokeClassObject(token)` and their `IClassFactory` pointers are released via `Marshal.Release`. All existing LIFO handle-ordering rules, thread-affinity checks, and retry semantics remain identical to SxS mode. Native `HMODULE` handles remain cached for the process lifetime so GC finalizer threads never encounter `0xC0000005` (`STATUS_ACCESS_VIOLATION`) if an uncollected RCW is finalized after deactivation.
+
+### 3. Threading (`MTA` vs `STA`) and message pumping on Nano Server
+
+Nano Server is a headless OneCore image that omits the Win32k GUI subsystem (`win32u.dll`) and full `user32.dll`. Keep two rules in mind when running in Nano Server containers:
+
+- **Use `MTA` (`COINIT_MULTITHREADED`), not `STA` (`[STAThread]`):**
+  On Nano Server, `combase!CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` fails with **`0x80004001` (`E_NOTIMPL`)** because single-threaded apartments require creating a hidden `OleMainThreadWndClass` message window via `win32u.dll`. As a result, `Thread.TrySetApartmentState(ApartmentState.STA)` returns `false` on Nano Server.
+  By contrast, `combase!CoInitializeEx(NULL, COINIT_MULTITHREADED)` succeeds (`S_OK`). Do not decorate your container entry point with `[STAThread]` or force `ApartmentState.STA` when running on Nano Server; let .NET use its default MTA threads (and if a raw thread has not initialized COM yet, the fallback automatically initializes `COINIT_MULTITHREADED` when `CoRegisterClassObject` returns `CO_E_NOTINITIALIZED`).
+- **Message pumping is safely skipped when `user32.dll` message queues are absent:**
+  Because Nano Server does not include a full `C:\Windows\System32\user32.dll` implementation, `PumpPendingMessages()` catches `DllNotFoundException` and `EntryPointNotFoundException` and treats message pumping as a safe no-op. You can also pass `pumpPendingMessages: false` explicitly (`new ComExecutor(pumpPendingMessages: false)`).
+
+### 4. Native DLL dependencies in Nano Server containers (x86 and x64)
+
+Registration-free COM resolves COM class activation, not the Windows PE loader's imported DLL dependencies. Most C++/ATL/MSVC COM DLLs import:
+
+- **Legacy Win32 API umbrella DLLs:** `KERNEL32.dll`, `USER32.dll`, `ADVAPI32.dll`, `ole32.dll`, and `OLEAUT32.dll`.
+  In Nano Server, `OLEAUT32.dll` is in `C:\Windows\System32`, while the legacy forwarder stubs (`kernel32.dll`, `user32.dll`, `advapi32.dll`, `ole32.dll`) live in **`C:\Windows\System32\forwarders`** (or `C:\Windows\SysWOW64\forwarders` for 32-bit x86 processes). Ensure `C:\Windows\System32\forwarders` (or `SysWOW64\forwarders`) is on the container's `PATH`, or copy the required forwarder stubs alongside your COM DLL.
+- **Visual C++ Runtime DLLs:** `vcruntime140.dll`, `vcruntime140_1.dll` (x64), `msvcp140.dll` (or debug `vcruntime140d.dll` / `ucrtbased.dll` for debug builds). Copy the matching x86 or x64 VC++ runtime redistributables into your application folder or `System32` / `SysWOW64` inside the container image.
+
+Example Nano Server container usage (no `[STAThread]` required):
+
+```csharp
+using System;
+using System.IO;
+using AdaskoTheBeAsT.Interop.COM;
+
+internal static class Program
+{
+    private static int Main()
+    {
+        // Disable message pumping explicitly on headless Nano Server (or let the built-in fallback no-op automatically)
+        IComExecutor executor = new ComExecutor(pumpPendingMessages: false);
+        string dll = Path.Combine(AppContext.BaseDirectory, "NativeCOM.dll");
+        string manifest = Path.Combine(AppContext.BaseDirectory, "NativeCOM.manifest");
+
+        var creation = executor.Create(
+            dll,
+            manifest,
+            () => new NativeCOM.StringConcatenatorClass());
+
+        if (!creation.Success)
+        {
+            Console.Error.WriteLine(creation.Exception);
+            return 1;
+        }
+
+        using var handle = creation.Value
+            ?? throw new InvalidOperationException("No COM handle was returned.");
+
+        var concatenator = handle.ComObject
+            ?? throw new InvalidOperationException("No COM object was returned.");
+
+        Console.WriteLine(concatenator.ConcatStrings("Hello from ", "Nano Server 2025!"));
+        return 0;
+    }
+}
+```
+
 <a id="diagnostics-and-troubleshooting"></a>
 
 ## 🩺 Diagnostics and troubleshooting
@@ -282,6 +368,8 @@ Install the `dotnet-trace` tool separately if needed. Direct `Free` callers shou
 | Symptom | What to check |
 | --- | --- |
 | Failed result with `Win32Exception` | Inspect `NativeErrorCode`, manifest XML, paths, and native dependencies |
+| `ERROR_MOD_NOT_FOUND (126)` on Nano Server | Ensure `C:\Windows\System32\forwarders` (`SysWOW64\forwarders` on x86) is in `PATH` and VC++ runtime DLLs (`vcruntime140.dll`, etc.) are present |
+| `E_NOTIMPL (0x80004001)` setting `ApartmentState.STA` on Nano Server | Nano Server omits `win32u.dll` and does not support STA message windows; use default `MTA` threads instead |
 | Class not registered (`0x80040154`) | Verify the CLSID, active manifest, DLL architecture, and that construction occurs inside the active context |
 | `BadImageFormatException` or native load failure | Match the process architecture to the native DLL and all dependencies |
 | `ActCtxWrongSizeException` | This reports an internal `ACTCTX` structure-layout mismatch, not a direct check of the DLL's architecture; capture runtime details and report it |
@@ -325,11 +413,11 @@ Install the corresponding x86/x64 runtime before testing that architecture. Defa
 
 The quick path stays here. The deeper dives have their own homes:
 
-- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 4.0.1 and what changed in earlier releases.
-- 🚚 [Migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md): upgrade from 3.x to 4.0 or 2.x to 3.0 without guessing.
+- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 4.1.0 and what changed in earlier releases.
+- 🚚 [Migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md): upgrade from 3.x to 4.x or 2.x to 3.0 without guessing.
 - 🧩 [Advanced usage](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/advanced-usage.md): multiple manifests, DI decorators, testing, and STA scheduling.
 - 🏗️ [Native builds and architecture](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/native-builds.md): make the DLL, manifest, and interop assembly agree on x86/x64.
-- 🧠 [Architecture decisions](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/README.md): why the library works this way. Historical context, not a current support matrix.
+- 🧠 [Architecture decisions](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/README.md): why the library works this way, including [ADR-0023 (Nano Server In-Process Class-Factory Fallback)](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/0023-nanoserver-inproc-class-factory-fallback.md).
 - 📖 [Microsoft: registration-free COM interop](https://learn.microsoft.com/en-us/dotnet/framework/interop/registration-free-com-interop).
 - 📖 [Microsoft: activation contexts](https://learn.microsoft.com/en-us/windows/win32/sbscs/activation-contexts).
 

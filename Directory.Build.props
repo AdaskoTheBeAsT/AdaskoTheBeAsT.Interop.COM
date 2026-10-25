@@ -11,7 +11,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
     <ErrorLog>$(SolutionDir)\.sarif\$(MSBuildProjectName).json</ErrorLog>
-    <Version>4.0.1</Version>
+    <Version>4.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
