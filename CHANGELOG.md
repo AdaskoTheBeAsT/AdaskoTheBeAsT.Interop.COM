@@ -6,6 +6,15 @@ Dates shown for historical releases refer to repository tags, not NuGet publicat
 
 See the [migration guide](MIGRATION.md) for required upgrade steps and the [README](README.md) for current usage.
 
+## [4.1.0]
+
+### Added
+
+- Automatic in-process COM class-factory fallback (`DllGetClassObject` + `combase!CoRegisterClassObject` / `CoRevokeClassObject`) when Windows Side-by-Side (SxS) activation contexts (`CreateActCtxW`) are unavailable on the host OS (`ERROR_INVALID_FUNCTION`, `ERROR_NOT_SUPPORTED`, or `ERROR_CALL_NOT_IMPLEMENTED`), enabling registration-free COM in **Windows Nano Server 2025 (`ltsc2025`)** x86 and x64 containers.
+- Recursive manifest parsing for `<file>` and `<dependentAssembly>` elements in fallback mode with cycle protection and process-lifetime native module (`HMODULE`) caching.
+- Graceful handling of missing `user32.dll` / `PeekMessageW` entry points during message pumping on headless OneCore / Nano Server images.
+- [ADR-0023](docs/adr/0023-nanoserver-inproc-class-factory-fallback.md) and unit test suite (`NanoServerFallbackTest`) covering Nano Server fallback execution, LIFO handle semantics, dependent manifests, and native failure modes.
+
 ## [4.0.1]
 
 ### Fixed
@@ -94,6 +103,7 @@ Older README and ADR entries use version labels that do not line up consistently
 
 The [architecture decision index](docs/adr/README.md) provides additional historical context.
 
+[4.1.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.0.1...v4.1.0
 [4.0.1]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v2.1.0...v3.0.0

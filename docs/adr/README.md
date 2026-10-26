@@ -30,6 +30,7 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0020](0020-host-owned-message-pumping.md) | Support Host-Owned Message Pumping and Explicit RCW Ownership | Accepted | v4.0.0 |
 | [0021](0021-consolidate-supported-target-frameworks.md) | Consolidate Supported Target Frameworks to Modern .NET and Supported .NET Framework | Accepted | v4.0.0 |
 | [0022](0022-explicit-intptr-and-analyzer-hygiene.md) | Preserve Explicit `IntPtr`/`UIntPtr` Win32 Signatures and Isolate Multi-Architecture Solution Builds | Accepted | v4.0.1 |
+| [0023](0023-nanoserver-inproc-class-factory-fallback.md) | Fall Back to Manifest-Driven In-Process Class Registration on Windows Nano Server | Accepted | v4.1.0 |
 
 ## Conventions
 
