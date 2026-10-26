@@ -55,9 +55,9 @@ public class NanoServerFallbackTest
             creation.Success.Should().BeTrue();
             using var handle = creation.Value!;
             handle.ActivationContextHandles.Should().ContainSingle()
-                .Which.ToInt64().Should().BeLessThan(0);
+                .Which.ToInt64().Should().BeNegative();
             handle.ActivationCookies.Should().ContainSingle()
-                .Which.ToInt64().Should().BeLessThan(0);
+                .Which.ToInt64().Should().BeNegative();
             handle.ComObject!.ConcatStrings("Create, ", "Fallback!").Should().Be("Create, Fallback!");
 
             var freeResult = Executor.Free(handle);
@@ -201,7 +201,7 @@ public class NanoServerFallbackTest
 
                 result.Success.Should().BeFalse();
                 result.Exception.Should().BeOfType<Win32Exception>();
-                api.RegisteredTokens.Should().HaveCount(1);
+                api.RegisteredTokens.Should().ContainSingle();
                 api.RevokedTokens.Should().Equal(api.RegisteredTokens);
                 api.ReleasedFactoriesCount.Should().Be(2);
             }
@@ -451,11 +451,13 @@ public class NanoServerFallbackTest
                 return NativeMethods.E_NOINTERFACE;
             }
 
+#pragma warning disable MA0176 // Optimize guid creation
             if (FakeSecondClsidFactory && clsid == Guid.Parse(SecondClsid))
             {
                 var primaryClsid = Guid.Parse(ConcatenatorClsid);
                 return base.GetClassObject(procAddress, ref primaryClsid, ref iid, out classFactory);
             }
+#pragma warning restore MA0176
 
             return base.GetClassObject(procAddress, ref clsid, ref iid, out classFactory);
         }

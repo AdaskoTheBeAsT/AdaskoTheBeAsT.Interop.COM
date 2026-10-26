@@ -13,8 +13,10 @@ namespace AdaskoTheBeAsT.Interop.COM;
 // and provides the manifest-driven in-process class-factory fallback on Windows Nano Server.
 internal class ActivationContextApi
 {
+#pragma warning disable MA0176 // Optimize guid creation
     private static readonly Guid IidIClassFactory = new("00000001-0000-0000-C000-000000000046");
     private static readonly Guid IidIUnknown = new("00000000-0000-0000-C000-000000000046");
+#pragma warning restore MA0176
     private static readonly ConcurrentDictionary<string, IntPtr> LoadedModules = new(StringComparer.OrdinalIgnoreCase);
 
     private static long _nextFallbackToken = -1;
@@ -315,6 +317,7 @@ internal class ActivationContextApi
         }
     }
 
+#pragma warning disable S107 // Methods should not have too many parameters
     private static bool ProcessElement(
         XmlReader reader,
         string manifestPath,
@@ -326,6 +329,7 @@ internal class ActivationContextApi
         HashSet<string> visitedManifests,
         List<ComClassRegistration> registrations,
         out int errorCode)
+#pragma warning restore S107
     {
         errorCode = 0;
         if (string.Equals(reader.LocalName, "file", StringComparison.Ordinal))
