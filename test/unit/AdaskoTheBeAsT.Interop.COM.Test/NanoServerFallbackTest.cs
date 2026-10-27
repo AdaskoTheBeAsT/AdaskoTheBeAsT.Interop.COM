@@ -299,6 +299,131 @@ public class NanoServerFallbackTest
         });
     }
 
+    [Fact]
+    public void ExecuteAndCreateShouldFailWhenSxsFallbackIsDisabled()
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            var api = new SimulatedNanoServerApi(NativeMethods.ERROR_INVALID_FUNCTION);
+            var descriptors = new[] { new ComPathDescriptor(AssemblyPath, ManifestPath) };
+            var prevSxs = Environment.GetEnvironmentVariable(NanoServerOptions.DisableSxsFallbackEnvironmentVariable);
+            var prevSta = Environment.GetEnvironmentVariable(NanoServerOptions.DisableStaShimEnvironmentVariable);
+
+            try
+            {
+                NanoServerOptions.EnableSxsFallback = false;
+                NanoServerOptions.EnableSxsFallback.Should().BeFalse();
+
+                var executeResult = Executor.Execute(
+                    descriptors,
+                    () => _ = new NativeCOM.StringConcatenatorClass(),
+                    pumpPendingMessages: false,
+                    api);
+                executeResult.Success.Should().BeFalse();
+                executeResult.Exception.Should().BeOfType<Win32Exception>()
+                    .Which.NativeErrorCode.Should().Be(NativeMethods.ERROR_INVALID_FUNCTION);
+
+                var createResult = Executor.Create(
+                    descriptors,
+                    () => new NativeCOM.StringConcatenatorClass(),
+                    pumpPendingMessages: false,
+                    api);
+                createResult.Success.Should().BeFalse();
+                createResult.Exception.Should().BeOfType<Win32Exception>()
+                    .Which.NativeErrorCode.Should().Be(NativeMethods.ERROR_INVALID_FUNCTION);
+
+                Environment.SetEnvironmentVariable(NanoServerOptions.DisableSxsFallbackEnvironmentVariable, "true");
+                Environment.SetEnvironmentVariable(NanoServerOptions.DisableStaShimEnvironmentVariable, "1");
+                NanoServerOptions.ResetToEnvironmentDefaults();
+                NanoServerOptions.EnableSxsFallback.Should().BeFalse();
+                NanoServerOptions.EnableStaShim.Should().BeFalse();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(NanoServerOptions.DisableSxsFallbackEnvironmentVariable, prevSxs);
+                Environment.SetEnvironmentVariable(NanoServerOptions.DisableStaShimEnvironmentVariable, prevSta);
+                NanoServerOptions.ResetToEnvironmentDefaults();
+            }
+        });
+    }
+
+    [Fact]
+    public void ExecuteOnStaThreadWithMessagePumpShouldInvokeSampleComObjectAndPumpWindowMessages()
+    {
+        TestWindow.OnStaThread(() =>
+        {
+            Thread.CurrentThread.GetApartmentState().Should().Be(ApartmentState.STA);
+            using var window = new TestWindow();
+            window.Post(wParam: 99, lParam: 1234);
+
+            var api = new SimulatedNanoServerApi(NativeMethods.ERROR_INVALID_FUNCTION);
+            var descriptors = new[] { new ComPathDescriptor(AssemblyPath, ManifestPath) };
+            string? output = null;
+
+            var result = Executor.Execute(
+                descriptors,
+                () =>
+                {
+                    var instance = new NativeCOM.StringConcatenatorClass();
+                    output = instance.ConcatStrings("STA, ", "SampleCOM!");
+                },
+                pumpPendingMessages: true,
+                api);
+
+            result.Success.Should().BeTrue();
+            output.Should().Be("STA, SampleCOM!");
+            window.DeliveryCount.Should().Be(1);
+            window.LastWParam.Should().Be(new UIntPtr(99));
+            window.LastLParam.Should().Be(new IntPtr(1234));
+        });
+    }
+
+    [Fact]
+    public void NanoServerOptionsShouldManageStaShimStateAndIdentifyShimmedApiSets()
+    {
+        var prevLibSta = Environment.GetEnvironmentVariable(NanoServerOptions.DisableStaShimEnvironmentVariable);
+        var prevOsSta = Environment.GetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable);
+        try
+        {
+            NanoServerStaShim.IsShimmedApiSet(null).Should().BeFalse();
+            NanoServerStaShim.IsShimmedApiSet(string.Empty).Should().BeFalse();
+            NanoServerStaShim.IsShimmedApiSet("api-ms-win-core-synch-l1-1-0").Should().BeFalse();
+            NanoServerStaShim.IsShimmedApiSet("ext-ms-win-rtcore-ntuser-window-ext-l1-1-0").Should().BeTrue();
+            NanoServerStaShim.IsShimmedApiSet("ext-ms-win-ntuser-message-l1-1-0").Should().BeTrue();
+            NanoServerStaShim.IsShimmedApiSet("ext-ms-win-com-sta-l1-1-0").Should().BeTrue();
+
+            Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, "1");
+            NanoServerOptions.ForceInProcessStaShim = false;
+            NanoServerOptions.EnableStaShim = false;
+            NanoServerOptions.RefreshStaState();
+            NanoServerOptions.IsInProcessStaShimActive.Should().BeFalse();
+
+            Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, null);
+            NanoServerOptions.EnableStaShim = false;
+            NanoServerOptions.RefreshStaState();
+            NanoServerOptions.IsInProcessStaShimActive.Should().BeFalse();
+
+            NanoServerOptions.ForceInProcessStaShim = true;
+            NanoServerOptions.ForceInProcessStaShim.Should().BeTrue();
+            NanoServerOptions.EnableStaShim = true;
+            NanoServerOptions.EnableStaShim.Should().BeTrue();
+            NanoServerOptions.RefreshStaState();
+            NanoServerOptions.IsInProcessStaShimActive.Should().BeTrue();
+
+            NanoServerWindowManager.ResolveFunction("RegisterClassW").Should().NotBe(IntPtr.Zero);
+            NanoServerWindowManager.ResolveFunction("CreateWindowExW").Should().NotBe(IntPtr.Zero);
+            NanoServerWindowManager.ResolveFunction("PeekMessageW").Should().NotBe(IntPtr.Zero);
+            NanoServerWindowManager.ResolveFunction("CoInitialize").Should().NotBe(IntPtr.Zero);
+            NanoServerWindowManager.ResolveFunction("NonExistentFunction").Should().Be(IntPtr.Zero);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(NanoServerOptions.DisableStaShimEnvironmentVariable, prevLibSta);
+            Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, prevOsSta);
+            NanoServerOptions.ResetToEnvironmentDefaults();
+        }
+    }
+
     private static string CreateNestedManifestFixture(string tempDir)
     {
         var subFolder = Path.Combine(tempDir, "SubChild");

@@ -61,6 +61,7 @@ internal sealed class TestWindow : IDisposable
     internal static void OnStaThread(Action action)
     {
         ThrowHelper.ThrowIfNull(action, nameof(action));
+        NanoServerOptions.EnsureInitialized();
 
         ExceptionDispatchInfo? failure = null;
         var thread = new Thread(() =>

@@ -196,11 +196,12 @@ public class ExecutorRegressionTest
             cbSize = Marshal.SizeOf<ActCtx>(),
             lpSource = ManifestPath,
         };
-        var nativeHandle = NativeMethods.CreateActCtx(ref context);
+        var api = ActivationContextApi.Instance;
+        var nativeHandle = api.CreateActCtx(ref context, AssemblyPath, out _);
         nativeHandle.Should().NotBe(new IntPtr(-1));
         try
         {
-            NativeMethods.ActivateActCtx(nativeHandle, out var cookie).Should().BeTrue();
+            api.ActivateActCtx(nativeHandle, out var cookie).Should().BeTrue();
             try
             {
                 var release = Executor.Free(handle);
@@ -212,12 +213,12 @@ public class ExecutorRegressionTest
             }
             finally
             {
-                NativeMethods.DeactivateActCtx(0, cookie).Should().BeTrue();
+                api.DeactivateActCtx(cookie).Should().BeTrue();
             }
         }
         finally
         {
-            NativeMethods.ReleaseActCtx(nativeHandle);
+            api.ReleaseActCtx(nativeHandle);
         }
 
         Executor.Free(handle).Success.Should().BeTrue();

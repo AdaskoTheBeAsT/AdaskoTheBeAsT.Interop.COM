@@ -30,8 +30,9 @@ internal class ActivationContextApi
 
     internal virtual IntPtr CreateActCtx(ref ActCtx context) => NativeMethods.CreateActCtx(ref context);
 
-    internal IntPtr CreateActCtx(ref ActCtx context, string? defaultAssemblyPath, out int errorCode)
+    internal virtual IntPtr CreateActCtx(ref ActCtx context, string? defaultAssemblyPath, out int errorCode)
     {
+        NanoServerOptions.EnsureInitialized();
         var handle = CreateActCtx(ref context);
         if (handle != (IntPtr)(-1))
         {
@@ -40,7 +41,7 @@ internal class ActivationContextApi
         }
 
         var lastError = GetLastWin32Error();
-        if (!IsFallbackTriggerError(lastError))
+        if (!NanoServerOptions.EnableSxsFallback || !IsFallbackTriggerError(lastError))
         {
             errorCode = lastError;
             return (IntPtr)(-1);

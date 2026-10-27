@@ -6,6 +6,15 @@ Dates shown for historical releases refer to repository tags, not NuGet publicat
 
 See the [migration guide](MIGRATION.md) for required upgrade steps and the [README](README.md) for current usage.
 
+## [4.2.0]
+
+### Added
+
+- Automatic in-process Single-Threaded Apartment (`STA` / `COINIT_APARTMENTTHREADED`) and user-mode Win32 window & message-queue shim (`NanoServerStaShim` + `NanoServerWindowManager`) on **Windows Nano Server 2025 (`ltsc2025`)** x86 and x64 when `win32u.dll` is absent, enabling `ApartmentState.STA`, `[STAThread]`, and `pumpPendingMessages: true` without `E_NOTIMPL` (`0x80004001`).
+- Public `NanoServerOptions` configuration API (`EnableSxsFallback`, `EnableStaShim`, `ForceInProcessStaShim`, `IsInProcessStaShimActive`, `RefreshStaState()`, `ResetToEnvironmentDefaults()`) and environment-variable toggles (`ADASKO_NANOSERVER_DISABLE_SXS_FALLBACK`, `ADASKO_NANOSERVER_DISABLE_STA_SHIM`, `NANOSERVER_DISABLE_STA_SHIM`) for runtime diagnostics and testing.
+- Seamless coordination with the OS-level native `nanoserver_sta_shim.dll` in `adaskothebeast/nanoserver` container images (`NanoServerStaShim_Refresh` / `NanoServerStaShim_RestoreOriginal`) and automatic `%SystemRoot%\System32\forwarders` (`SysWOW64\forwarders` on x86) `PATH` initialization via `[ModuleInitializer]`.
+- [ADR-0024](docs/adr/0024-nanoserver-sta-shim-and-options.md) and expanded container and host unit test coverage across all STA shim toggle modes.
+
 ## [4.1.0]
 
 ### Added
