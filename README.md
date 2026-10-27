@@ -61,8 +61,8 @@ The short version: Windows, a compatible .NET target, and native bits that match
 | Modern .NET targets | `net8.0`, `net9.0`, `net10.0` |
 | .NET Framework targets | `net472`, `net48`, `net481` |
 | Process architecture | x86 or x64, matching the native COM DLL and its dependencies |
-| COM metadata | A managed interop assembly or equivalent COM interface declarations |
-| Apartment | Supplied by the caller (`STA` on desktop/Server Core when required by the component; `MTA` on headless Nano Server) |
+|COM metadata | A managed interop assembly or equivalent COM interface declarations |
+| Apartment | Supplied by the caller (`STA` or `MTA` — on headless Nano Server 2025, the built-in STA & message-queue shim automatically enables `ApartmentState.STA` and `pumpPendingMessages: true`) |
 
 **4.0 removes `netstandard2.0`, `net462`, `net47`, and `net471` package assets.** Consumers on those targets must retarget or remain on a compatible earlier package version. The managed library being AnyCPU does not make a native COM DLL architecture-neutral.
 
@@ -287,15 +287,30 @@ When `CreateActCtxW` fails with `ERROR_INVALID_FUNCTION (1)`, `ERROR_NOT_SUPPORT
 3. **Zero-code-change instantiation**: Inside your `Execute` callback or `Create` factory, standard managed `new MyComClass()` or `Activator.CreateInstance(Type.GetTypeFromCLSID(...))` calls invoke `CoCreateInstance(..., CLSCTX_INPROC_SERVER, ...)`, which resolves the registered `IClassFactory` directly from `combase.dll`'s in-process table without touching SxS or the Windows Registry.
 4. **Revocation and lifetime safety (`DeactivateActCtx` / `Free` / `Dispose`)**: On scope exit or handle disposal, registered class objects are revoked in reverse order via `CoRevokeClassObject(token)` and their `IClassFactory` pointers are released via `Marshal.Release`. All existing LIFO handle-ordering rules, thread-affinity checks, and retry semantics remain identical to SxS mode. Native `HMODULE` handles remain cached for the process lifetime so GC finalizer threads never encounter `0xC0000005` (`STATUS_ACCESS_VIOLATION`) if an uncollected RCW is finalized after deactivation.
 
-### 3. Threading (`MTA` vs `STA`) and message pumping on Nano Server
+### 3. Single-Threaded Apartment (`STA`), message pumping, and `NanoServerOptions` toggles on Nano Server
 
-Nano Server is a headless OneCore image that omits the Win32k GUI subsystem (`win32u.dll`) and full `user32.dll`. Keep two rules in mind when running in Nano Server containers:
+Nano Server is a headless OneCore image that omits the Win32k GUI subsystem (`win32u.dll`) and full `user32.dll`. On an unshimmed Nano Server container, `combase!CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` fails with **`0x80004001` (`E_NOTIMPL`)** because single-threaded apartments require `ext-ms-win-rtcore-ntuser-window-ext-l1-1-0` (`win32u.dll`) to register and create the hidden `OleMainThreadWndClass` message window.
 
-- **Use `MTA` (`COINIT_MULTITHREADED`), not `STA` (`[STAThread]`):**
-  On Nano Server, `combase!CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` fails with **`0x80004001` (`E_NOTIMPL`)** because single-threaded apartments require creating a hidden `OleMainThreadWndClass` message window via `win32u.dll`. As a result, `Thread.TrySetApartmentState(ApartmentState.STA)` returns `false` on Nano Server.
-  By contrast, `combase!CoInitializeEx(NULL, COINIT_MULTITHREADED)` succeeds (`S_OK`). Do not decorate your container entry point with `[STAThread]` or force `ApartmentState.STA` when running on Nano Server; let .NET use its default MTA threads (and if a raw thread has not initialized COM yet, the fallback automatically initializes `COINIT_MULTITHREADED` when `CoRegisterClassObject` returns `CO_E_NOTINITIALIZED`).
-- **Message pumping is safely skipped when `user32.dll` message queues are absent:**
-  Because Nano Server does not include a full `C:\Windows\System32\user32.dll` implementation, `PumpPendingMessages()` catches `DllNotFoundException` and `EntryPointNotFoundException` and treats message pumping as a safe no-op. You can also pass `pumpPendingMessages: false` explicitly (`new ComExecutor(pumpPendingMessages: false)`).
+`AdaskoTheBeAsT.Interop.COM` solves this automatically:
+
+- **Built-in User-Mode STA & Win32 Message-Queue Shim (`NanoServerStaShim` + `NanoServerWindowManager`):**
+  When running on Nano Server (`win32u.dll` absent in `System32`), the library's module initializer appends `%SystemRoot%\System32\forwarders` (or `SysWOW64\forwarders` on x86) to the process `PATH`, preloads `combase.dll`, `user32.dll`, `ole32.dll`, `advapi32.dll`, and `oleaut32.dll`, and redirects the windowing and message-queue IAT slots in `combase.dll`, `ole32.dll`, and `user32.dll` to an in-process user-mode window manager (`RegisterClassExW`, `CreateWindowExW`, `DestroyWindow`, `DefWindowProcW`, `PeekMessageW`, `GetMessageW`, `TranslateMessage`, `DispatchMessageW`, `PostMessageW`, `PostThreadMessageW`, `SendMessageW`, `SendMessageTimeoutW`, `MsgWaitForMultipleObjectsEx`, timer and window-property tables).
+- **Seamless coordination with OS-level container shims (`nanoserver_sta_shim.dll`):**
+  When running inside the `adaskothebeast/nanoserver` base images that include the OS-level native `nanoserver_sta_shim.dll`, `NanoServerStaShim` coordinates with `nanoserver_sta_shim.dll` so both `ApartmentState.STA` (`[STAThread]`) and `pumpPendingMessages: true` work seamlessly on both `x86` and `x64`.
+- **Configurable toggles via `NanoServerOptions` and environment variables:**
+  Both the SxS manifest fallback and the STA shim can be toggled on or off for testing and diagnostics via environment variables or at runtime through `NanoServerOptions`:
+
+| Environment Variable | Runtime Property / Method (`NanoServerOptions`) | Default | Description |
+| --- | --- | --- | --- |
+| `ADASKO_NANOSERVER_DISABLE_SXS_FALLBACK=1` | `NanoServerOptions.EnableSxsFallback` | `true` | Controls whether `CreateActCtx` falls back to manifest-driven `DllGetClassObject` + `CoRegisterClassObject` when SxS is absent. |
+| `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1` | `NanoServerOptions.EnableStaShim` | `true` | Controls whether the library's in-process Nano Server STA & Win32 message-queue shim is active. |
+| `NANOSERVER_DISABLE_STA_SHIM=1` | `NanoServerOptions.ForceInProcessStaShim` / `NanoServerOptions.RefreshStaState()` | `false` (`OS shim enabled`) | Controls the container's OS-level native `nanoserver_sta_shim.dll` when present. Setting both `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1` and `NANOSERVER_DISABLE_STA_SHIM=1` restores unshimmed Nano Server behavior (`E_NOTIMPL` on `STA`). |
+
+#### Which STA method is better: OS-level native shim (`nanoserver_sta_shim.dll`) or `AdaskoTheBeAsT.Interop.COM`'s in-process shim?
+
+- **OS-level native shim (`nanoserver_sta_shim.dll` in `adaskothebeast/nanoserver` images) is better for STA & Win32 message pumping:** It is loaded by the Windows PE loader during `DLL_PROCESS_ATTACH` of `user32.dll` / `ole32.dll` *before* the .NET CLR starts, so `[STAThread]` on `Main()` and early native `CoInitialize` calls work immediately, and `combase.dll` calls pure native C++ implementations with zero managed reverse-P/Invoke overhead.
+- **`AdaskoTheBeAsT.Interop.COM`'s in-process shim (`NanoServerStaShim`) is better when running on stock Microsoft Nano Server images:** It requires zero OS or Dockerfile modifications and brings full STA + Win32 message-queue support purely from the NuGet package.
+- **Best production setup (Default):** Run `AdaskoTheBeAsT.Interop.COM` on `adaskothebeast/nanoserver`. By default, `AdaskoTheBeAsT.Interop.COM` automatically detects `nanoserver_sta_shim.dll` and defers STA/window hooking to the native OS-level shim, while providing the registration-free `.manifest` (`DllGetClassObject` + `CoRegisterClassObject`) fallback that Nano Server's kernel `apisetschema.dll` otherwise blocks.
 
 ### 4. Native DLL dependencies in Nano Server containers (x86 and x64)
 
@@ -369,7 +384,7 @@ Install the `dotnet-trace` tool separately if needed. Direct `Free` callers shou
 | --- | --- |
 | Failed result with `Win32Exception` | Inspect `NativeErrorCode`, manifest XML, paths, and native dependencies |
 | `ERROR_MOD_NOT_FOUND (126)` on Nano Server | Ensure `C:\Windows\System32\forwarders` (`SysWOW64\forwarders` on x86) is in `PATH` and VC++ runtime DLLs (`vcruntime140.dll`, etc.) are present |
-| `E_NOTIMPL (0x80004001)` setting `ApartmentState.STA` on Nano Server | Nano Server omits `win32u.dll` and does not support STA message windows; use default `MTA` threads instead |
+| `E_NOTIMPL (0x80004001)` setting `ApartmentState.STA` on Nano Server | Ensure `NanoServerOptions.EnableStaShim` is `true` (not disabled via `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1`), or ensure `AdaskoTheBeAsT.Interop.COM` is loaded before starting your first STA thread |
 | Class not registered (`0x80040154`) | Verify the CLSID, active manifest, DLL architecture, and that construction occurs inside the active context |
 | `BadImageFormatException` or native load failure | Match the process architecture to the native DLL and all dependencies |
 | `ActCtxWrongSizeException` | This reports an internal `ACTCTX` structure-layout mismatch, not a direct check of the DLL's architecture; capture runtime details and report it |

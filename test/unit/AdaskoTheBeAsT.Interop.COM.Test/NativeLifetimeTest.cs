@@ -121,10 +121,10 @@ public class NativeLifetimeTest
             var callback = new ReleaseCallback(threadId =>
             {
                 callbackThread = threadId;
-                contextCaptured = NativeMethods.GetCurrentActCtx(out callbackContext);
+                contextCaptured = ActivationContextApi.Instance.GetCurrentActCtx(out callbackContext);
                 if (contextCaptured && callbackContext != IntPtr.Zero)
                 {
-                    NativeMethods.ReleaseActCtx(callbackContext);
+                    ActivationContextApi.Instance.ReleaseActCtx(callbackContext);
                 }
 
                 reentrantRelease = Executor.Free(handle);

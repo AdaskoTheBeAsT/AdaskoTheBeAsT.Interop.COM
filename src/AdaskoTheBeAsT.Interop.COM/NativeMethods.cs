@@ -24,6 +24,7 @@ internal static partial class NativeMethods
     internal const uint CLSCTX_INPROC_SERVER = 0x1;
     internal const uint REGCLS_MULTIPLEUSE = 0x1;
     internal const uint COINIT_MULTITHREADED = 0x0;
+    internal const uint COINIT_APARTMENTTHREADED = 0x2;
 
     internal const int E_NOINTERFACE = unchecked((int)0x80004002);
     internal const int CLASS_E_CLASSNOTAVAILABLE = unchecked((int)0x80040111);
@@ -43,6 +44,7 @@ internal static partial class NativeMethods
 
     internal static void PumpPendingMessages()
     {
+        NanoServerOptions.EnsureInitialized();
         try
         {
             for (var count = 0; count < MaxMessagesPerPump && PeekMessage(out var msg, IntPtr.Zero, 0, 0, PM_REMOVE); count++)
@@ -118,6 +120,9 @@ internal static partial class NativeMethods
     internal static extern int CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
 
     [DllImport("combase.dll", ExactSpelling = true)]
+    internal static extern void CoUninitialize();
+
+    [DllImport("combase.dll", ExactSpelling = true)]
     internal static extern int CoRegisterClassObject(
         ref Guid rclsid,
         IntPtr pUnk,
@@ -145,6 +150,46 @@ internal static partial class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern void PostQuitMessage(int exitCode);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool VirtualProtect(
+        IntPtr lpAddress,
+        UIntPtr dwSize,
+        uint flNewProtect,
+        out uint lpflOldProtect);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    internal static extern void SetLastError(int dwErrCode);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    internal static extern uint GetCurrentProcessId();
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    internal static extern IntPtr CreateEventW(
+        IntPtr lpEventAttributes,
+        [MarshalAs(UnmanagedType.Bool)] bool bManualReset,
+        [MarshalAs(UnmanagedType.Bool)] bool bInitialState,
+        IntPtr lpName);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetEvent(IntPtr hEvent);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ResetEvent(IntPtr hEvent);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    internal static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [DllImport("Kernel32.dll", ExactSpelling = true)]
+    internal static extern uint WaitForMultipleObjectsEx(
+        uint nCount,
+        [In] IntPtr[] lpHandles,
+        [MarshalAs(UnmanagedType.Bool)] bool bWaitAll,
+        uint dwMilliseconds,
+        [MarshalAs(UnmanagedType.Bool)] bool bAlertable);
 }
 #endif
 #if NET8_0_OR_GREATER
@@ -183,6 +228,9 @@ internal static partial class NativeMethods
     internal static partial int CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
 
     [LibraryImport("combase.dll")]
+    internal static partial void CoUninitialize();
+
+    [LibraryImport("combase.dll")]
     internal static partial int CoRegisterClassObject(
         ref Guid rclsid,
         IntPtr pUnk,
@@ -211,6 +259,46 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     internal static partial void PostQuitMessage(int exitCode);
+
+    [LibraryImport("Kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool VirtualProtect(
+        IntPtr lpAddress,
+        UIntPtr dwSize,
+        uint flNewProtect,
+        out uint lpflOldProtect);
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial void SetLastError(int dwErrCode);
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial uint GetCurrentProcessId();
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial IntPtr CreateEventW(
+        IntPtr lpEventAttributes,
+        [MarshalAs(UnmanagedType.Bool)] bool bManualReset,
+        [MarshalAs(UnmanagedType.Bool)] bool bInitialState,
+        IntPtr lpName);
+
+    [LibraryImport("Kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetEvent(IntPtr hEvent);
+
+    [LibraryImport("Kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ResetEvent(IntPtr hEvent);
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [LibraryImport("Kernel32.dll")]
+    internal static partial uint WaitForMultipleObjectsEx(
+        uint nCount,
+        [In] IntPtr[] lpHandles,
+        [MarshalAs(UnmanagedType.Bool)] bool bWaitAll,
+        uint dwMilliseconds,
+        [MarshalAs(UnmanagedType.Bool)] bool bAlertable);
 }
 #endif
 #pragma warning restore SA1121 // Use built-in type alias

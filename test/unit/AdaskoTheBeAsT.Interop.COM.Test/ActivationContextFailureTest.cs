@@ -308,15 +308,16 @@ public class ActivationContextFailureTest
             _references.Clear();
         }
 
-        internal override IntPtr CreateActCtx(ref ActCtx context)
+        internal override IntPtr CreateActCtx(ref ActCtx context, string? defaultAssemblyPath, out int errorCode)
         {
             CreationCallCount++;
             if (CreationCallCount == FailCreationCall)
             {
+                errorCode = NativeMethods.ERROR_INVALID_PARAMETER;
                 return new IntPtr(-1);
             }
 
-            var handle = base.CreateActCtx(ref context);
+            var handle = base.CreateActCtx(ref context, defaultAssemblyPath, out errorCode);
             if (handle != new IntPtr(-1))
             {
                 AddReference(handle);
