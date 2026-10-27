@@ -10,17 +10,17 @@ namespace AdaskoTheBeAsT.Interop.COM;
 public static class NanoServerOptions
 {
     /// <summary>
-    /// Environment variable that disables the in-process SxS class-factory fallback when set to <c>1</c> or <c>true</c>.
+    /// Environment variable that disables the in-process SxS class-factory fallback when set to <c>1</c> or <see langword="true"/>.
     /// </summary>
     public const string DisableSxsFallbackEnvironmentVariable = "ADASKO_NANOSERVER_DISABLE_SXS_FALLBACK";
 
     /// <summary>
-    /// Environment variable that disables the library's in-process STA and message-queue shim when set to <c>1</c> or <c>true</c>.
+    /// Environment variable that disables the library's in-process STA and message-queue shim when set to <c>1</c> or <see langword="true"/>.
     /// </summary>
     public const string DisableStaShimEnvironmentVariable = "ADASKO_NANOSERVER_DISABLE_STA_SHIM";
 
     /// <summary>
-    /// Environment variable that disables the OS-level Nano Server STA shim when set to <c>1</c> or <c>true</c>.
+    /// Environment variable that disables the OS-level Nano Server STA shim when set to <c>1</c> or <see langword="true"/>.
     /// </summary>
     public const string DisableOsStaShimEnvironmentVariable = "NANOSERVER_DISABLE_STA_SHIM";
 

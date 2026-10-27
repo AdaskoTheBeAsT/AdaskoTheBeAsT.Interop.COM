@@ -393,12 +393,11 @@ public class NanoServerFallbackTest
             NanoServerStaShim.IsShimmedApiSet("ext-ms-win-com-sta-l1-1-0").Should().BeTrue();
 
             Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, "1");
-            NanoServerOptions.ForceInProcessStaShim = false;
             NanoServerOptions.EnableStaShim = false;
             NanoServerOptions.RefreshStaState();
             NanoServerOptions.IsInProcessStaShimActive.Should().BeFalse();
 
-            Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, null);
+            Environment.SetEnvironmentVariable(NanoServerOptions.DisableOsStaShimEnvironmentVariable, value: null);
             NanoServerOptions.EnableStaShim = false;
             NanoServerOptions.RefreshStaState();
             NanoServerOptions.IsInProcessStaShimActive.Should().BeFalse();

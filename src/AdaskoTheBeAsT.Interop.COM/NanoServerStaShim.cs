@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -92,6 +93,7 @@ internal static class NanoServerStaShim
 
     internal static bool IsInstalled { get; private set; }
 
+    [ExcludeFromCodeCoverage]
     internal static void Initialize()
     {
         if (Environment.OSVersion.Platform != PlatformID.Win32NT)
@@ -119,6 +121,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     internal static void RefreshState()
     {
         if (Environment.OSVersion.Platform != PlatformID.Win32NT)
@@ -134,6 +137,7 @@ internal static class NanoServerStaShim
         WaitForMainStaHostReady();
     }
 
+    [ExcludeFromCodeCoverage]
     internal static void WaitForMainStaHostReady()
     {
         ManualResetEventSlim? readyEvent;
@@ -168,6 +172,190 @@ internal static class NanoServerStaShim
         return false;
     }
 
+    [ExcludeFromCodeCoverage]
+    internal static bool IsAnyStaProviderActive()
+    {
+        if (IsInstalled)
+        {
+            return true;
+        }
+
+        if (NanoServerOptions.IsEnvironmentFlagTrue(NanoServerOptions.DisableOsStaShimEnvironmentVariable))
+        {
+            return false;
+        }
+
+        return _hasOsStaShimModule || QueryOriginalWindowApiSetPresence();
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static int OnApiSetQueryApiSetPresence(IntPtr namespaceName, IntPtr present)
+    {
+        var name = ReadUnicodeString(namespaceName);
+        if (IsShimmedApiSet(name))
+        {
+            if (present != IntPtr.Zero)
+            {
+                Marshal.WriteByte(present, IsAnyStaProviderActive() ? (byte)1 : (byte)0);
+            }
+
+            return 0;
+        }
+
+        if (_originalPresence is not null)
+        {
+            return _originalPresence(namespaceName, present);
+        }
+
+        if (present != IntPtr.Zero)
+        {
+            Marshal.WriteByte(present, 0);
+        }
+
+        return 0;
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static int OnApiSetQueryApiSetPresenceEx(IntPtr namespaceName, IntPtr isInSchema, IntPtr present)
+    {
+        var name = ReadUnicodeString(namespaceName);
+        if (IsShimmedApiSet(name))
+        {
+            var active = IsAnyStaProviderActive() ? (byte)1 : (byte)0;
+            if (isInSchema != IntPtr.Zero)
+            {
+                Marshal.WriteByte(isInSchema, active);
+            }
+
+            if (present != IntPtr.Zero)
+            {
+                Marshal.WriteByte(present, active);
+            }
+
+            return 0;
+        }
+
+        if (_originalPresenceEx is not null)
+        {
+            return _originalPresenceEx(namespaceName, isInSchema, present);
+        }
+
+        return 0;
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static IntPtr OnResolveDelayLoadedApi(
+        IntPtr parentModuleBase,
+        IntPtr delayloadDescriptor,
+        IntPtr failureDllHook,
+        IntPtr failureSystemHook,
+        IntPtr thunkAddress,
+        uint flags)
+    {
+        if (parentModuleBase != IntPtr.Zero && delayloadDescriptor != IntPtr.Zero && thunkAddress != IntPtr.Zero)
+        {
+            var rvaDllName = Marshal.ReadInt32(delayloadDescriptor, 4);
+            var dllName = Marshal.PtrToStringAnsi(AddRva(parentModuleBase, rvaDllName));
+            if (IsShimmedApiSet(dllName) && IsInstalled)
+            {
+                var resolved = TryResolveShimmedThunk(parentModuleBase, delayloadDescriptor, thunkAddress);
+                if (resolved != IntPtr.Zero)
+                {
+                    return resolved;
+                }
+            }
+        }
+
+        return _originalResolveDelayLoad is not null
+            ? _originalResolveDelayLoad(parentModuleBase, delayloadDescriptor, failureDllHook, failureSystemHook, thunkAddress, flags)
+            : IntPtr.Zero;
+    }
+
+    internal static IntPtr TryResolveShimmedThunk(IntPtr parentModuleBase, IntPtr delayloadDescriptor, IntPtr thunkAddress)
+    {
+        var rvaIat = Marshal.ReadInt32(delayloadDescriptor, 12);
+        var rvaInt = Marshal.ReadInt32(delayloadDescriptor, 16);
+        var iatBase = AddRva(parentModuleBase, rvaIat);
+        var intBase = AddRva(parentModuleBase, rvaInt);
+        var slotOffset = unchecked((int)(thunkAddress.ToInt64() - iatBase.ToInt64()));
+        if (slotOffset < 0 || (slotOffset % IntPtr.Size) != 0)
+        {
+            return IntPtr.Zero;
+        }
+
+        var intEntry = Marshal.ReadIntPtr(intBase, slotOffset);
+        if (intEntry == IntPtr.Zero || IsOrdinalImport(intEntry))
+        {
+            return IntPtr.Zero;
+        }
+
+        var nameRva = (int)(intEntry.ToInt64() & 0x7FFFFFFF);
+        var funcName = Marshal.PtrToStringAnsi(AddRva(parentModuleBase, nameRva + 2));
+        if (funcName is not { Length: > 0 })
+        {
+            return IntPtr.Zero;
+        }
+
+        var fnPtr = NanoServerWindowManager.ResolveFunction(funcName);
+        if (fnPtr == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        WritePointerWithProtection(thunkAddress, fnPtr);
+        return fnPtr;
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static IntPtr OnGetModuleHandleW(IntPtr lpModuleName)
+    {
+        if (lpModuleName != IntPtr.Zero)
+        {
+            var name = Marshal.PtrToStringUni(lpModuleName);
+            if (IsShimmedApiSet(name))
+            {
+                if (IsInstalled)
+                {
+                    return _combaseHandle != IntPtr.Zero ? _combaseHandle : new IntPtr(0x10000000);
+                }
+
+                if (!IsAnyStaProviderActive())
+                {
+                    NativeMethods.SetLastError(ErrorModNotFound);
+                    return IntPtr.Zero;
+                }
+            }
+        }
+
+        return _originalGetModuleHandleW is not null
+            ? _originalGetModuleHandleW(lpModuleName)
+            : IntPtr.Zero;
+    }
+
+    internal static string? ReadUnicodeString(IntPtr unicodeStringPtr)
+    {
+        if (unicodeStringPtr == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        var byteLength = unchecked((ushort)Marshal.ReadInt16(unicodeStringPtr, 0));
+        var buffer = Marshal.ReadIntPtr(unicodeStringPtr, IntPtr.Size);
+        if (buffer == IntPtr.Zero || byteLength == 0)
+        {
+            return string.Empty;
+        }
+
+        return Marshal.PtrToStringUni(buffer, byteLength / 2);
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static bool IsOrdinalImport(IntPtr thunkValue)
+        => IntPtr.Size == 8
+            ? (thunkValue.ToInt64() & unchecked((long)0x8000000000000000UL)) != 0
+            : (thunkValue.ToInt32() & unchecked((int)0x80000000u)) != 0;
+
+    [ExcludeFromCodeCoverage]
     private static void PreloadForwarders(string systemDir)
     {
         var forwardersDir = Path.Combine(systemDir, "forwarders");
@@ -190,6 +378,7 @@ internal static class NanoServerStaShim
         _ = EnsureModuleLoaded("oleaut32.dll", forwardersDir);
     }
 
+    [ExcludeFromCodeCoverage]
     private static IntPtr EnsureModuleLoaded(string dllName, string forwardersDir)
     {
         var handle = NativeMethods.LoadLibraryEx(dllName, IntPtr.Zero, 0);
@@ -207,6 +396,7 @@ internal static class NanoServerStaShim
         return handle;
     }
 
+    [ExcludeFromCodeCoverage]
     private static void RefreshStateCore()
     {
         var forceShim = NanoServerOptions.ForceInProcessStaShim;
@@ -247,6 +437,7 @@ internal static class NanoServerStaShim
         ApplyInProcessStaShimState();
     }
 
+    [ExcludeFromCodeCoverage]
     private static void ApplyInactiveStaState()
     {
         IsInstalled = false;
@@ -258,6 +449,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void ApplyOsStaShimState()
     {
         IsInstalled = false;
@@ -279,6 +471,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void ApplyInProcessStaShimState()
     {
         _osStaShimRestoreOriginal?.Invoke();
@@ -295,6 +488,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void EnsureMainStaHostThreadStarted()
     {
         if (_mainStaThread is { IsAlive: true })
@@ -316,6 +510,7 @@ internal static class NanoServerStaShim
         thread.Start();
     }
 
+    [ExcludeFromCodeCoverage]
     private static void MainStaHostThreadProc(ManualResetEventSlim readyEvent, ManualResetEventSlim stopEvent)
     {
         _mainStaThreadId = NativeMethods.GetCurrentThreadId();
@@ -337,6 +532,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void StopMainStaHostThread()
     {
         var thread = _mainStaThread;
@@ -363,6 +559,7 @@ internal static class NanoServerStaShim
         readyEvent?.Dispose();
     }
 
+    [ExcludeFromCodeCoverage]
     private static void OnProcessExit(object? sender, EventArgs e)
     {
         _ = sender;
@@ -378,6 +575,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void EnsureModulesDiscovered()
     {
         if (HookedModules.Count > 0)
@@ -424,45 +622,39 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static void CaptureOriginalImports(ModuleHookState state)
     {
-        if (_originalPresence is null && state.PresenceIatSlot != IntPtr.Zero)
-        {
-            var orig = Marshal.ReadIntPtr(state.PresenceIatSlot);
-            if (orig != IntPtr.Zero && orig != HookedPresencePtr)
-            {
-                _originalPresence = Marshal.GetDelegateForFunctionPointer<ApiSetQueryApiSetPresenceDelegate>(orig);
-            }
-        }
-
-        if (_originalPresenceEx is null && state.PresenceExIatSlot != IntPtr.Zero)
-        {
-            var orig = Marshal.ReadIntPtr(state.PresenceExIatSlot);
-            if (orig != IntPtr.Zero && orig != HookedPresenceExPtr)
-            {
-                _originalPresenceEx = Marshal.GetDelegateForFunctionPointer<ApiSetQueryApiSetPresenceExDelegate>(orig);
-            }
-        }
-
-        if (_originalResolveDelayLoad is null && state.ResolveDelayLoadIatSlot != IntPtr.Zero)
-        {
-            var orig = Marshal.ReadIntPtr(state.ResolveDelayLoadIatSlot);
-            if (orig != IntPtr.Zero && orig != HookedResolveDelayLoadPtr)
-            {
-                _originalResolveDelayLoad = Marshal.GetDelegateForFunctionPointer<ResolveDelayLoadedApiDelegate>(orig);
-            }
-        }
-
-        if (_originalGetModuleHandleW is null && state.GetModuleHandleWIatSlot != IntPtr.Zero)
-        {
-            var orig = Marshal.ReadIntPtr(state.GetModuleHandleWIatSlot);
-            if (orig != IntPtr.Zero && orig != HookedGetModuleHandleWPtr)
-            {
-                _originalGetModuleHandleW = Marshal.GetDelegateForFunctionPointer<GetModuleHandleWDelegate>(orig);
-            }
-        }
+        _originalPresence ??= TryCreateImportDelegate<ApiSetQueryApiSetPresenceDelegate>(
+            state.PresenceIatSlot,
+            HookedPresencePtr);
+        _originalPresenceEx ??= TryCreateImportDelegate<ApiSetQueryApiSetPresenceExDelegate>(
+            state.PresenceExIatSlot,
+            HookedPresenceExPtr);
+        _originalResolveDelayLoad ??= TryCreateImportDelegate<ResolveDelayLoadedApiDelegate>(
+            state.ResolveDelayLoadIatSlot,
+            HookedResolveDelayLoadPtr);
+        _originalGetModuleHandleW ??= TryCreateImportDelegate<GetModuleHandleWDelegate>(
+            state.GetModuleHandleWIatSlot,
+            HookedGetModuleHandleWPtr);
     }
 
+    [ExcludeFromCodeCoverage]
+    private static TDelegate? TryCreateImportDelegate<TDelegate>(IntPtr iatSlot, IntPtr hookedPtr)
+        where TDelegate : class
+    {
+        if (iatSlot == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        var orig = Marshal.ReadIntPtr(iatSlot);
+        return orig != IntPtr.Zero && orig != hookedPtr
+            ? Marshal.GetDelegateForFunctionPointer<TDelegate>(orig)
+            : null;
+    }
+
+    [ExcludeFromCodeCoverage]
     private static bool QueryOriginalWindowApiSetPresence()
     {
         if (_originalPresence is null)
@@ -493,186 +685,10 @@ internal static class NanoServerStaShim
         }
     }
 
-    private static bool IsAnyStaProviderActive()
-    {
-        if (IsInstalled)
-        {
-            return true;
-        }
-
-        if (NanoServerOptions.IsEnvironmentFlagTrue(NanoServerOptions.DisableOsStaShimEnvironmentVariable))
-        {
-            return false;
-        }
-
-        return _hasOsStaShimModule || QueryOriginalWindowApiSetPresence();
-    }
-
-    private static int OnApiSetQueryApiSetPresence(IntPtr namespaceName, IntPtr present)
-    {
-        var name = ReadUnicodeString(namespaceName);
-        if (IsShimmedApiSet(name))
-        {
-            if (present != IntPtr.Zero)
-            {
-                Marshal.WriteByte(present, IsAnyStaProviderActive() ? (byte)1 : (byte)0);
-            }
-
-            return 0;
-        }
-
-        if (_originalPresence is not null)
-        {
-            return _originalPresence(namespaceName, present);
-        }
-
-        if (present != IntPtr.Zero)
-        {
-            Marshal.WriteByte(present, 0);
-        }
-
-        return 0;
-    }
-
-    private static int OnApiSetQueryApiSetPresenceEx(IntPtr namespaceName, IntPtr isInSchema, IntPtr present)
-    {
-        var name = ReadUnicodeString(namespaceName);
-        if (IsShimmedApiSet(name))
-        {
-            var active = IsAnyStaProviderActive() ? (byte)1 : (byte)0;
-            if (isInSchema != IntPtr.Zero)
-            {
-                Marshal.WriteByte(isInSchema, active);
-            }
-
-            if (present != IntPtr.Zero)
-            {
-                Marshal.WriteByte(present, active);
-            }
-
-            return 0;
-        }
-
-        if (_originalPresenceEx is not null)
-        {
-            return _originalPresenceEx(namespaceName, isInSchema, present);
-        }
-
-        return 0;
-    }
-
-    private static IntPtr OnResolveDelayLoadedApi(
-        IntPtr parentModuleBase,
-        IntPtr delayloadDescriptor,
-        IntPtr failureDllHook,
-        IntPtr failureSystemHook,
-        IntPtr thunkAddress,
-        uint flags)
-    {
-        if (parentModuleBase != IntPtr.Zero && delayloadDescriptor != IntPtr.Zero && thunkAddress != IntPtr.Zero)
-        {
-            var rvaDllName = Marshal.ReadInt32(delayloadDescriptor, 4);
-            var dllName = Marshal.PtrToStringAnsi(AddRva(parentModuleBase, rvaDllName));
-            if (IsShimmedApiSet(dllName) && IsInstalled)
-            {
-                var resolved = TryResolveShimmedThunk(parentModuleBase, delayloadDescriptor, thunkAddress);
-                if (resolved != IntPtr.Zero)
-                {
-                    return resolved;
-                }
-            }
-        }
-
-        return _originalResolveDelayLoad is not null
-            ? _originalResolveDelayLoad(parentModuleBase, delayloadDescriptor, failureDllHook, failureSystemHook, thunkAddress, flags)
-            : IntPtr.Zero;
-    }
-
-    private static IntPtr TryResolveShimmedThunk(IntPtr parentModuleBase, IntPtr delayloadDescriptor, IntPtr thunkAddress)
-    {
-        var rvaIat = Marshal.ReadInt32(delayloadDescriptor, 12);
-        var rvaInt = Marshal.ReadInt32(delayloadDescriptor, 16);
-        var iatBase = AddRva(parentModuleBase, rvaIat);
-        var intBase = AddRva(parentModuleBase, rvaInt);
-        var slotOffset = unchecked((int)(thunkAddress.ToInt64() - iatBase.ToInt64()));
-        if (slotOffset < 0 || (slotOffset % IntPtr.Size) != 0)
-        {
-            return IntPtr.Zero;
-        }
-
-        var intEntry = Marshal.ReadIntPtr(intBase, slotOffset);
-        if (intEntry == IntPtr.Zero || IsOrdinalImport(intEntry))
-        {
-            return IntPtr.Zero;
-        }
-
-        var nameRva = (int)(intEntry.ToInt64() & 0x7FFFFFFF);
-        var funcName = Marshal.PtrToStringAnsi(AddRva(parentModuleBase, nameRva + 2));
-        if (funcName is not { Length: > 0 })
-        {
-            return IntPtr.Zero;
-        }
-
-        var fnPtr = NanoServerWindowManager.ResolveFunction(funcName);
-        if (fnPtr == IntPtr.Zero)
-        {
-            return IntPtr.Zero;
-        }
-
-        WritePointerWithProtection(thunkAddress, fnPtr);
-        return fnPtr;
-    }
-
-    private static IntPtr OnGetModuleHandleW(IntPtr lpModuleName)
-    {
-        if (lpModuleName != IntPtr.Zero)
-        {
-            var name = Marshal.PtrToStringUni(lpModuleName);
-            if (IsShimmedApiSet(name))
-            {
-                if (IsInstalled)
-                {
-                    return _combaseHandle != IntPtr.Zero ? _combaseHandle : new IntPtr(0x10000000);
-                }
-
-                if (!IsAnyStaProviderActive())
-                {
-                    NativeMethods.SetLastError(ErrorModNotFound);
-                    return IntPtr.Zero;
-                }
-            }
-        }
-
-        return _originalGetModuleHandleW is not null
-            ? _originalGetModuleHandleW(lpModuleName)
-            : IntPtr.Zero;
-    }
-
-    private static string? ReadUnicodeString(IntPtr unicodeStringPtr)
-    {
-        if (unicodeStringPtr == IntPtr.Zero)
-        {
-            return null;
-        }
-
-        var byteLength = unchecked((ushort)Marshal.ReadInt16(unicodeStringPtr, 0));
-        var buffer = Marshal.ReadIntPtr(unicodeStringPtr, IntPtr.Size);
-        if (buffer == IntPtr.Zero || byteLength == 0)
-        {
-            return string.Empty;
-        }
-
-        return Marshal.PtrToStringUni(buffer, byteLength / 2);
-    }
-
     private static IntPtr AddRva(IntPtr baseAddress, int rva)
         => new(baseAddress.ToInt64() + rva);
 
-    private static bool IsOrdinalImport(IntPtr thunkValue)
-        => IntPtr.Size == 8
-            ? (thunkValue.ToInt64() & unchecked((long)0x8000000000000000UL)) != 0
-            : (thunkValue.ToInt32() & unchecked((int)0x80000000u)) != 0;
-
+    [ExcludeFromCodeCoverage]
     private static void WritePointerWithProtection(IntPtr address, IntPtr value)
     {
         if (NativeMethods.VirtualProtect(address, new UIntPtr((uint)IntPtr.Size), PageExecuteReadWrite, out var oldProtect))
@@ -682,6 +698,7 @@ internal static class NanoServerStaShim
         }
     }
 
+    [ExcludeFromCodeCoverage]
     [StructLayout(LayoutKind.Auto)]
     private readonly struct DelayLoadSlot
     {
@@ -699,6 +716,7 @@ internal static class NanoServerStaShim
         internal IntPtr ShimTarget { get; }
     }
 
+    [ExcludeFromCodeCoverage]
     private sealed class ModuleHookState
     {
         private const uint ImageScnMemExecute = 0x20000000;
