@@ -454,7 +454,7 @@ public class NanoServerWindowManagerTest
             Marshal.ReadInt32(neededPtr).Should().Be(0);
 
             NanoServerWindowManager.GetUserObjectInformationWImpl(winSta, UoiName, IntPtr.Zero, 0, neededPtr).Should().Be(0);
-            Marshal.ReadInt32(neededPtr).Should().BeGreaterThan(0);
+            Marshal.ReadInt32(neededPtr).Should().BePositive();
             NanoServerWindowManager.GetUserObjectInformationWImpl(winSta, UoiName, infoBuffer, 2, IntPtr.Zero).Should().Be(0);
 
             NanoServerWindowManager.GetUserObjectInformationWImpl(winSta, UoiName, infoBuffer, 64, neededPtr).Should().Be(1);
@@ -477,8 +477,8 @@ public class NanoServerWindowManagerTest
 
                 NanoServerWindowManager.GetClipboardFormatNameWImpl(fmtId1, IntPtr.Zero, 32).Should().Be(0);
                 NanoServerWindowManager.GetClipboardFormatNameWImpl(fmtId1, infoBuffer, 0).Should().Be(0);
-                NanoServerWindowManager.GetClipboardFormatNameWImpl(fmtId1, infoBuffer, 32).Should().BeGreaterThan(0);
-                NanoServerWindowManager.GetClipboardFormatNameWImpl(0x9999u, infoBuffer, 32).Should().BeGreaterThan(0);
+                NanoServerWindowManager.GetClipboardFormatNameWImpl(fmtId1, infoBuffer, 32).Should().BePositive();
+                NanoServerWindowManager.GetClipboardFormatNameWImpl(0x9999u, infoBuffer, 32).Should().BePositive();
                 Marshal.PtrToStringUni(infoBuffer).Should().Be("Format_9999");
             }
             finally
