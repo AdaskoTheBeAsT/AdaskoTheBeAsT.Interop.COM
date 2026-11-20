@@ -60,7 +60,7 @@ Copy the matching repository manifest into each directory under the common name 
 
 ```xml
 <PropertyGroup>
-  <TargetFramework>net10.0-windows</TargetFramework>
+  <TargetFramework>net11.0-windows</TargetFramework>
   <PlatformTarget>x64</PlatformTarget>
 </PropertyGroup>
 
@@ -109,8 +109,9 @@ The separate [`NativeLifetimeProbe`](../test/native/NativeLifetimeProbe.vcxproj)
 For the current Microsoft.Testing.Platform configuration:
 
 ```powershell
-dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 --arch x86
-dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 --arch x64
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net11.0 -p:PlatformTarget=x86
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net11.0 -p:PlatformTarget=x64
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 -p:PlatformTarget=x64
 dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net472 -p:PlatformTarget=x64
 ```
 

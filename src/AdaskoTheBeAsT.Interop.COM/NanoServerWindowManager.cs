@@ -27,8 +27,12 @@ internal static class NanoServerWindowManager
 
     private static readonly IntPtr FakeWinSta = new(0x1001);
     private static readonly IntPtr FakeDesktop = new(0x1002);
-
+#if NET10_0_OR_GREATER
+    private static readonly Lock ClassLock = new();
+#endif
+#if NET472_OR_GREATER
     private static readonly object ClassLock = new();
+#endif
     private static readonly Dictionary<ushort, WindowClassEntry> ClassesByAtom = [];
     private static readonly Dictionary<string, ushort> AtomsByClassName = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<IntPtr, WindowEntry> Windows = new();
@@ -930,7 +934,12 @@ internal static class NanoServerWindowManager
 
     private sealed class WindowEntry
     {
+#if NET10_0_OR_GREATER
+        private readonly Lock _lock = new();
+#endif
+#if NET472_OR_GREATER
         private readonly object _lock = new();
+#endif
         private readonly byte[] _extraBytes;
         private IntPtr _wndProc;
         private IntPtr _hInstance;
@@ -1088,7 +1097,12 @@ internal static class NanoServerWindowManager
 
     private sealed class ThreadMessageQueue
     {
+#if NET10_0_OR_GREATER
+        private readonly Lock _lock = new();
+#endif
+#if NET472_OR_GREATER
         private readonly object _lock = new();
+#endif
         private readonly List<QueuedMessage> _posted = [];
         private readonly Queue<SentMessageItem> _sent = new();
 

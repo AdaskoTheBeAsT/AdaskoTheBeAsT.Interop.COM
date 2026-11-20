@@ -18,7 +18,7 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 **Bring your DLL and a matching manifest.** `AdaskoTheBeAsT.Interop.COM` handles Windows activation contexts so you can use compatible COM components without registering them globally. Your application gets an explicit lifetime API; your deployment instructions lose a `regsvr32` step.
 
-> 🎉 **Version 4.1.0:** automatic in-process COM class-factory fallback (`DllGetClassObject` + `combase!CoRegisterClassObject`) for **Windows Nano Server 2025 (`ltsc2025`)** x86 and x64 containers where Side-by-Side (`CreateActCtxW`) is absent, plus host-owned message pumping, strict lifetime checks, and modern analyzer/test toolchains. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
+> 🎉 **Version 5.0.0:** `.NET 11` (`net11.0`) support, persistent multi-coclass activation scopes (`IComActivationScope` + `ComActivationOptions` including `ForceInProcessFallback`), direct `HMODULE` instantiation (`ComClassFactory` + `scope.CreateInstance`), reference-counted isolated worker module unloading (`DllCanUnloadNow` + `FreeLibrary`), manifest normalization & `ComManifestRewriter` staging with bidirectional ProgID/TypeLib/ProxyStub support, `ComModuleDiagnostics` (including RCW-free `CLSID` probing), `ComErrorDiagnostics` (`IErrorInfo` + VB6 `HRESULT` unpacking), `ComAutomationLocaleScope`, `ComModuleQuirks`, `SafeArrayMarshal` utilities, strict W^X Nano Server STA/OLE2/`CLSID_DispenserManager` shims, and `NanoServerOptions.PrepareProcess()`. Upgrading? Check the [changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md) and [migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md). Still on 3.0? The [v3.0.0 README](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/v3.0.0/README.md) has you covered.
 
 ## ✨ Why you'll love this
 
@@ -41,6 +41,8 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 - 📦 [Install](#install)
 - 🚀 [Quick start](#quick-start)
 - 🧩 [Choose an API](#choose-an-api)
+- 🔄 [Multi-coclass scopes, worker isolation, and direct class factories](#scopes-and-worker-isolation)
+- 🛡️ [Automation locale scopes, `IErrorInfo`, `SafeArrayMarshal`, and module quirks](#automation-and-interop-utilities)
 - 🧵 [Lifetime and threading rules](#lifetime-and-threading-rules)
 - 🪟 [Message processing](#message-processing)
 - 📜 [Manifests and deployment](#manifests-and-deployment)
@@ -55,16 +57,16 @@ You just want to call a method from .NET, not turn deployment into a registry tr
 
 The short version: Windows, a compatible .NET target, and native bits that match your process.
 
-| Requirement | Version 4.1.0 |
+| Requirement | Version 5.0.0 |
 | --- | --- |
 | Operating system | Windows only (Desktop, Server Core, full Windows Server, and Windows Nano Server 2025 via automatic fallback) |
-| Modern .NET targets | `net8.0`, `net9.0`, `net10.0` |
+| Modern .NET targets | `net11.0`, `net10.0` |
 | .NET Framework targets | `net472`, `net48`, `net481` |
 | Process architecture | x86 or x64, matching the native COM DLL and its dependencies |
-|COM metadata | A managed interop assembly or equivalent COM interface declarations |
-| Apartment | Supplied by the caller (`STA` or `MTA` — on headless Nano Server 2025, the built-in STA & message-queue shim automatically enables `ApartmentState.STA` and `pumpPendingMessages: true`) |
+| COM metadata | A managed interop assembly or equivalent COM interface declarations |
+| Apartment | Supplied by the caller (`STA` or `MTA` — on headless Nano Server 2025, the built-in W^X STA & message-queue shim automatically enables `ApartmentState.STA` and `pumpPendingMessages: true`) |
 
-**4.0 removes `netstandard2.0`, `net462`, `net47`, and `net471` package assets.** Consumers on those targets must retarget or remain on a compatible earlier package version. The managed library being AnyCPU does not make a native COM DLL architecture-neutral.
+**5.0 targets `net11.0`, `net10.0`, `net472`, `net48`, and `net481` (removing `net8.0` and `net9.0`, in addition to `netstandard2.0` and `net462`–`net471` removed in 4.0).** Consumers on older targets must retarget or remain on a compatible earlier package version. The managed library being AnyCPU does not make a native COM DLL architecture-neutral.
 
 <a id="install"></a>
 
@@ -73,10 +75,10 @@ The short version: Windows, a compatible .NET target, and native bits that match
 One package to add:
 
 ```powershell
-dotnet add package AdaskoTheBeAsT.Interop.COM --version 4.1.0
+dotnet add package AdaskoTheBeAsT.Interop.COM --version 5.0.0
 ```
 
-For a Windows-only modern .NET application, use a Windows-qualified target such as `net10.0-windows`. This also communicates the platform requirement to the compiler's platform compatibility analyzer.
+For a Windows-only modern .NET application, use a Windows-qualified target such as `net11.0-windows` or `net10.0-windows`. This also communicates the platform requirement to the compiler's platform compatibility analyzer.
 
 <a id="quick-start"></a>
 
@@ -152,9 +154,15 @@ One callback or a longer-lived object? That's the main choice:
 | `Execute(dll, manifest, action)` | Work fits inside one synchronous callback | The library manages activation contexts only; you manage objects created inside the callback |
 | `Create(dll, manifest, factory)` | You need an explicitly owned object and its activation contexts | Release the returned handle with `using` or `Free` |
 | `Free(handle)` | You need the release result or the handle outlives a local scope | Check `Result.Success`; retain an incompletely released handle for a correct retry |
+| `Activate` / `Deactivate` (`IComActivationScope`) | Multiple coclasses, session recycling, Desktop `ForceInProcessFallback`, or `ComActivationOptions` (module unloading, TypeLib/ProgID leases, apartment selection) share one lifetime | Track created RCWs via `scope.TrackObject(...)` or `scope.CreateInstance<T>(clsid)` and release with `Deactivate(scope)` or `using` on the creating thread |
+| `ComClassFactory` | Direct `DllGetClassObject` -> `IClassFactory::CreateInstance` instantiation from an `HMODULE` or DLL path without SxS or registry lookups | Release the returned RCW (and `FreeLibrary` when calling `CreateInstanceFromDll`) on the owning thread |
+| `ComModuleDiagnostics` | Verifying a live instance's or registered `CLSID`'s native vtable belongs to an isolated worker DLL (including RCW-free `VerifyRegisteredInprocServer`) | Read-only inspection; classifies `Match`, `Mismatch`, or `Inconclusive` (shared runtime/proxy DLLs) |
+| `ComManifestRewriter` | Rewriting staged worker SxS manifests (renamed DLL filenames, pruned `<file>` entries, stripped `<description>` PII, idempotent `SaveIfChanged`) | Validates structural invariants before emitting UTF-8 without BOM |
+| `ComErrorDiagnostics` / `ComAutomationLocaleScope` / `ComModuleQuirks` | Reading/peeking thread `IErrorInfo` & VB6 `0x800Axxxx` codes, scoping Win32 `LCID` (`0x0409`) + `CultureInfo`, or suppressing stray `CoUninitialize` imports in a specific worker `HMODULE` | Thread-affine (`ComAutomationLocaleScope`) or per-`HMODULE` opt-in (`ComModuleQuirks`) |
+| `SafeArrayMarshal` | Marshaling VB6 1-based `SAFEARRAY` instances or Delphi borrowed/untyped `SAFEARRAY*` pointers, `BSTR`, or `VARIANT` arrays | Borrowed helpers never destroy caller memory; owned helpers deterministically call `SafeArrayDestroy` |
 | Collection overloads | Several manifests must be active together | Contexts activate in collection order and deactivate in reverse order |
 
-Prefer `IComExecutor` in application services so it can be substituted in unit tests. No DI container is required, and the existing static `Executor` signatures remain available.
+Prefer `IComExecutor` (or `IComActivationExecutor` / `ComExecutorExtensions` when using `Activate` and `ComActivationOptions`) in application services so it can be substituted in unit tests. No DI container is required, and `IComExecutor` adds no abstract members in 5.0, keeping existing mocks and decorators source-compatible.
 
 Already using `Microsoft.Extensions.DependencyInjection`? The registration is a one-liner:
 
@@ -171,11 +179,114 @@ services.AddSingleton<IComExecutor, ComExecutor>();
 
 COM can fail. The important part is knowing where to look:
 
-- Check `Result.Success` after `Execute`, `Create`, and `Free`.
-- Operational failures, including manifest activation and callback exceptions, appear in `Result.Exception`.
+- Check `Result.Success` after `Execute`, `Create`, `Free`, `Activate`, and `Deactivate`.
+- Operational failures, including manifest validation, activation, and callback exceptions, appear in `Result.Exception`.
 - If work and cleanup both fail, `Result.Exception` can be an `AggregateException`.
 - Invalid arguments, such as null callbacks, blank paths, or empty descriptor collections, throw before native allocation.
 - A successful empty `Execute` callback proves context activation, not that a particular COM class can be instantiated. Test the actual class too.
+
+<a id="scopes-and-worker-isolation"></a>
+
+## 🔄 Multi-coclass scopes, worker isolation, and direct class factories
+
+Stateful native COM servers frequently keep mutable globals in `.data` / `.bss` sections or instantiate multiple peer coclasses inside one session. Version **5.0.0** adds first-class worker staging, activation scopes, RCW-free provenance checks, and direct `HMODULE` instantiation so parallel STA workers can run isolated DLL copies inside a single process and unload them cleanly on recycle:
+
+### 1. Stage per-worker SxS manifests safely (`ComManifestRewriter`)
+
+When staging renamed worker copies (`SampleEngine.dll` -> `SampleEngine_00.dll`), `ComManifestRewriter` updates `<assemblyIdentity>` and `<file>` names, prunes optional companion `<file>` entries (plus any orphan `<comInterfaceExternalProxyStub>` tags), strips `<description>` licensee PII and XML comments, validates all structural invariants, and writes UTF-8 without BOM atomically only when bytes change:
+
+```csharp
+bool changed = ComManifestRewriter
+    .FromFile(templateManifestPath)
+    .WithAssemblyIdentityName("SampleEngine.Worker00")
+    .RenameFile("SampleEngine.dll", "SampleEngine_00.dll")
+    .RemoveFile("OptionalAddin.dll")
+    .StripDescriptions()
+    .SaveIfChanged(workerManifestPath);
+```
+
+### 2. Activate multi-coclass scopes, verify DLL provenance, and unload on deactivate (`IComActivationScope`)
+
+```csharp
+var options = new ComActivationOptions
+{
+    ForceInProcessFallback = true, // Optional: bypass Desktop WinSxS identity caching for worker clones
+    PreloadModules = true,
+    UnloadModulesOnDeactivate = true,
+    PumpPendingMessages = false,
+};
+
+var activation = executor.Activate(workerDllPath, workerManifestPath, options);
+if (!activation.Success)
+{
+    throw new InvalidOperationException("Scope activation failed.", activation.Exception);
+}
+
+using var scope = activation.Value!;
+
+// Pre-flight CoCreateInstance check with ZERO managed RCW allocations
+// (so Deactivate + FreeLibrary never requires GC.Collect()):
+ComModuleDiagnostics.VerifyRegisteredInprocServer(
+    typeof(SampleEngineClass).GUID,
+    scope.LoadedModuleHandles[0],
+    expectedDllPath: workerDllPath,
+    interfaceId: typeof(ISampleEngine).GUID);
+
+// Instantiate directly via DllGetClassObject -> IClassFactory::CreateInstance from LoadedModuleHandles[0],
+// automatically tracked for FinalReleaseComObject during Deactivate:
+var created = scope.CreateInstance<ISampleEngine>(typeof(SampleEngineClass).GUID);
+if (!created.Success)
+{
+    throw new InvalidOperationException("Coclass creation failed.", created.Exception);
+}
+
+ISampleEngine engine = created.Value!;
+// Use engine (and any peer coclasses tracked via scope.TrackObject(...)) on the owning thread...
+
+var release = executor.Deactivate(scope);
+if (!release.Success)
+{
+    throw new InvalidOperationException("Scope deactivation failed.", release.Exception);
+}
+```
+
+Need a single coclass from a DLL with **no `.manifest` file and no registry entries at all**? Call `ComClassFactory.CreateInstanceFromDll<TInterface>(dllPath, clsid, out IntPtr moduleHandle)` (or `ComClassFactory.CreateInstance<TInterface>(moduleHandle, clsid)` on an already loaded `HMODULE`).
+
+When legacy components inside a fallback scope call `CLSIDFromProgID`, `ProgIDFromCLSID`, or `LoadRegTypeLib`, opt in via `RegisterCurrentUserProgIdsOnFallback = true` and/or `RegisterCurrentUserTypeLibsOnFallback = true` on `ComActivationOptions`. Reference-counted forward and reverse `HKCU\Software\Classes` leases preserve any pre-existing user values, and `SkipCurrentUserRegistrationWhenPresentInClassesRoot = true` (default) skips `HKCU` writes automatically when matching registrations already exist in `Registry.ClassesRoot`.
+
+<a id="automation-and-interop-utilities"></a>
+
+## 🛡️ Automation locale scopes, `IErrorInfo`, `SafeArrayMarshal`, and module quirks
+
+Version **5.0.0** includes focused, zero-dependency utilities for classic VB6, Borland Delphi, ATL, and OLE Automation components:
+
+- **Thread-affine Win32 Automation `LCID` + `CultureInfo` guard (`ComAutomationLocaleScope`):**
+  `oleaut32.dll` (`VarR8FromStr`, `VarBstrFromR8`, `VariantChangeType`, `IDispatch::Invoke`) consults Win32 `GetThreadLocale()`, not `CultureInfo.CurrentCulture` on modern .NET. `ComAutomationLocaleScope.Enter()` sets Win32 `LCID` `0x0409` (`en-US`, or `UkEnglishLocaleId = 0x0809` / `EnterInvariant()` = `0x007F`) alongside `CultureInfo.InvariantCulture` in the exact runtime-safe order for both CoreCLR and `.NET Framework`, restoring both on the owning thread when disposed:
+
+  ```csharp
+  using (ComAutomationLocaleScope.Enter())
+  {
+      int hr = engine.ComputeRate("1234.56", out double rate);
+      if (hr < 0)
+      {
+          if (ComErrorDiagnostics.TryGetVisualBasicErrorNumber(hr, out int vbError))
+          {
+              // Unpacks FACILITY_CONTROL (0x800Axxxx), e.g. 13 for Type Mismatch
+          }
+
+          throw ComErrorDiagnostics.CreateExceptionForHr(hr); // Attaches Data["ComErrorInfo"]
+      }
+  }
+  ```
+
+- **Thread `IErrorInfo` reader/peeker (`ComErrorDiagnostics` & `ComErrorInfo`):**
+  `PeekCurrentErrorInfo()` (non-destructive) and `ConsumeCurrentErrorInfo()` read `IErrorInfo` (`Description`, `Source`, `HelpFile`, `HelpContext`, `InterfaceId`) directly from vtable slots `3`–`7` without RCW overhead, and `TryGetInterfaceErrorOffset(hr, out int offset)` unpacks `FACILITY_ITF` (`0x80040200+`) user codes.
+
+- **Ownership-aware `SAFEARRAY` marshaling (`SafeArrayMarshal`):**
+  Copy borrowed Borland Delphi `SAFEARRAY*` pointers that omit `FADF_HAVEVARTYPE` without destroying caller memory (`CopyFromBorrowedSafeArray<T>`), deterministically consume callee-owned pointers (`ConsumeOwnedSafeArray<T>`), marshal `BSTR` / `VARIANT` arrays (`CopyBorrowedBstrArray` / `ConsumeOwnedBstrArray`), normalize VB6 `1`-based `System.Array` instances into `0`-based `T[]` (`NormalizeVariantArray<T>`), or build `1`-based arrays for VB6 `ByRef` inputs (`CreateOneBasedArray<T>`).
+
+- **Per-module unbalanced `CoUninitialize` W^X IAT guard (`ComModuleQuirks`):**
+  For defective legacy COM DLLs whose teardown calls an extra unbalanced `CoUninitialize()` or `OleUninitialize()` while STA RCWs are still alive, call `ComModuleQuirks.SuppressUninitializeImports(workerModuleHandle)` to redirect those imports *only* in that worker `HMODULE` to a W^X native no-op stub (protected OS, COM, and CLR modules are rejected).
 
 <a id="lifetime-and-threading-rules"></a>
 
@@ -285,7 +396,7 @@ When `CreateActCtxW` fails with `ERROR_INVALID_FUNCTION (1)`, `ERROR_NOT_SUPPORT
 1. **Manifest parsing (`CreateActCtx`)**: Parses `<file>` and `<comClass clsid="{...}"/>` declarations (plus any nested `<dependentAssembly>` manifests) directly from the `.manifest` XML using `XmlReader` (`DtdProcessing.Prohibit`, `XmlResolver = null`) and resolves each COM server DLL path relative to the manifest's `lpAssemblyDirectory` or the `ComPathDescriptor` assembly path.
 2. **In-process factory registration (`ActivateActCtx`)**: Loads each target COM server DLL via `LoadLibraryExW(..., LOAD_WITH_ALTERED_SEARCH_PATH)`, resolves its exported `DllGetClassObject` entry point via `GetProcAddress`, requests the `IClassFactory` pointer for each `<comClass>` CLSID (`IID_IClassFactory`, falling back to `IID_IUnknown`), and registers that factory in the current process via `combase!CoRegisterClassObject(ref clsid, classFactory, CLSCTX_INPROC_SERVER, REGCLS_MULTIPLEUSE, out uint token)`.
 3. **Zero-code-change instantiation**: Inside your `Execute` callback or `Create` factory, standard managed `new MyComClass()` or `Activator.CreateInstance(Type.GetTypeFromCLSID(...))` calls invoke `CoCreateInstance(..., CLSCTX_INPROC_SERVER, ...)`, which resolves the registered `IClassFactory` directly from `combase.dll`'s in-process table without touching SxS or the Windows Registry.
-4. **Revocation and lifetime safety (`DeactivateActCtx` / `Free` / `Dispose`)**: On scope exit or handle disposal, registered class objects are revoked in reverse order via `CoRevokeClassObject(token)` and their `IClassFactory` pointers are released via `Marshal.Release`. All existing LIFO handle-ordering rules, thread-affinity checks, and retry semantics remain identical to SxS mode. Native `HMODULE` handles remain cached for the process lifetime so GC finalizer threads never encounter `0xC0000005` (`STATUS_ACCESS_VIOLATION`) if an uncollected RCW is finalized after deactivation.
+4. **Revocation and lifetime safety (`DeactivateActCtx` / `Free` / `Deactivate` / `Dispose`)**: On scope exit or handle disposal, tracked RCWs (when using `IComActivationScope.TrackObject`) are released first, registered class objects are revoked in reverse order via `CoRevokeClassObject(token)`, and their `IClassFactory` pointers are released via `Marshal.Release`. All LIFO ordering rules, thread-affinity checks, and retry semantics match SxS mode. By default, native `HMODULE` handles remain cached for the process lifetime so GC finalizer threads never encounter `0xC0000005` (`STATUS_ACCESS_VIOLATION`); isolated worker pools can opt into reference-counted unloading (`ComActivationOptions.UnloadModulesOnDeactivate = true`, gated by `DllCanUnloadNow() == S_OK` + `CoFreeUnusedLibrariesEx(0, 0)`, with `Executor.TryUnloadUnusedModules()` for deferred sweeps).
 
 ### 3. Single-Threaded Apartment (`STA`), message pumping, and `NanoServerOptions` toggles on Nano Server
 
@@ -303,8 +414,12 @@ Nano Server is a headless OneCore image that omits the Win32k GUI subsystem (`wi
 | Environment Variable | Runtime Property / Method (`NanoServerOptions`) | Default | Description |
 | --- | --- | --- | --- |
 | `ADASKO_NANOSERVER_DISABLE_SXS_FALLBACK=1` | `NanoServerOptions.EnableSxsFallback` | `true` | Controls whether `CreateActCtx` falls back to manifest-driven `DllGetClassObject` + `CoRegisterClassObject` when SxS is absent. |
-| `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1` | `NanoServerOptions.EnableStaShim` | `true` | Controls whether the library's in-process Nano Server STA & Win32 message-queue shim is active. |
+| `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1` | `NanoServerOptions.EnableStaShim` | `true` | Controls whether the library's W^X in-process Nano Server STA & Win32 message-queue shim is active. |
 | `NANOSERVER_DISABLE_STA_SHIM=1` | `NanoServerOptions.ForceInProcessStaShim` / `NanoServerOptions.RefreshStaState()` | `false` (`OS shim enabled`) | Controls the container's OS-level native `nanoserver_sta_shim.dll` when present. Setting both `ADASKO_NANOSERVER_DISABLE_STA_SHIM=1` and `NANOSERVER_DISABLE_STA_SHIM=1` restores unshimmed Nano Server behavior (`E_NOTIMPL` on `STA`). |
+| `ADASKO_NANOSERVER_ENABLE_LEGACY_OLE2_SHIM=1` | `NanoServerOptions.EnableLegacyOle2Shim` | `false` | Opt-in W^X IAT shim for `OleRun`, `OleSaveToStream`, `OleLoadFromStream`, `CoInitialize`, `OleInitialize`, and `OleUninitialize` on older Nano Server images when the OS shim does not advertise OLE2 capability. |
+| `ADASKO_NANOSERVER_ENABLE_DISPENSER_FALLBACK=1` | `NanoServerOptions.EnableDispenserManagerFallback` | `false` | Opt-in static-lifetime pure native W^X `CLSID_DispenserManager` fallback for MDAC/OLE DB/Jet 4.0 consumers on older Nano Server images when `comsvcs.dll` and the OS shim capability are absent. |
+| *(startup helper)* | `NanoServerOptions.PrepareProcess()` | *(idempotent)* | Performs forwarder `PATH` initialization, base DLL preloading, and configured shim setup once on the startup thread before launching concurrent STA worker pools. |
+| *(STA pre-warm helper)* | `NanoServerOptions.EnsureCurrentStaThreadInitialized()` | *(idempotent per STA thread)* | Forces native `CoInitializeEx(0, COINIT_APARTMENTTHREADED)` (`OleMainThreadWndClass`) initialization on lazy CoreCLR STA threads while balancing its temporary refcount; called automatically by `Executor` on STA threads. |
 
 #### Which STA method is better: OS-level native shim (`nanoserver_sta_shim.dll`) or `AdaskoTheBeAsT.Interop.COM`'s in-process shim?
 
@@ -369,8 +484,10 @@ The internal event source is observable by provider name **`AdaskoTheBeAsT.Inter
 
 | Event ID | Name | Level | Meaning |
 | --- | --- | --- | --- |
-| 1 | `HandleLeaked` | Warning | A handle reached finalization without successful release |
-| 2 | `HandleReleaseFailed` | Error | `Dispose` attempted release and received a failed result |
+| 1 | `HandleLeaked` | Warning | A `ComObjectHandle<T>` reached finalization without successful release |
+| 2 | `HandleReleaseFailed` | Error | `ComObjectHandle<T>.Dispose` attempted release and received a failed result |
+| 3 | `ScopeLeaked` | Warning | An `IComActivationScope` reached finalization without successful deactivation |
+| 4 | `ScopeReleaseFailed` | Error | `IComActivationScope.Dispose` attempted deactivation and received a failed result |
 
 These events are available in Debug and Release builds. The provider is not a public API type; subscribe by name with an `EventListener`, ETW tooling, or, for modern .NET, `dotnet-trace`:
 
@@ -415,8 +532,9 @@ Requirements:
 For a focused architecture check:
 
 ```powershell
-dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 --arch x64
-dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 --arch x86
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net11.0 -p:PlatformTarget=x64
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net11.0 -p:PlatformTarget=x86
+dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net10.0 -p:PlatformTarget=x64
 dotnet test --project test/unit/AdaskoTheBeAsT.Interop.COM.Test/AdaskoTheBeAsT.Interop.COM.Test.csproj -f net472 -p:PlatformTarget=x64
 ```
 
@@ -428,11 +546,11 @@ Install the corresponding x86/x64 runtime before testing that architecture. Defa
 
 The quick path stays here. The deeper dives have their own homes:
 
-- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 4.1.0 and what changed in earlier releases.
-- 🚚 [Migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md): upgrade from 3.x to 4.x or 2.x to 3.0 without guessing.
-- 🧩 [Advanced usage](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/advanced-usage.md): multiple manifests, DI decorators, testing, and STA scheduling.
+- 📝 [Changelog](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md): what's new in 5.0.0 and what changed in earlier releases.
+- 🚚 [Migration guide](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/MIGRATION.md): upgrade from 4.x to 5.0, 3.x to 4.0, or 2.x to 3.0 without guessing.
+- 🧩 [Advanced usage](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/advanced-usage.md): persistent multi-coclass scopes, worker module isolation, `ComClassFactory`, `ComManifestRewriter`, `ComAutomationLocaleScope`, `ComErrorDiagnostics`, `ComModuleQuirks`, `SafeArrayMarshal`, DI decorators, testing, and STA scheduling.
 - 🏗️ [Native builds and architecture](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/native-builds.md): make the DLL, manifest, and interop assembly agree on x86/x64.
-- 🧠 [Architecture decisions](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/README.md): why the library works this way, including [ADR-0023 (Nano Server In-Process Class-Factory Fallback)](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/0023-nanoserver-inproc-class-factory-fallback.md).
+- 🧠 [Architecture decisions](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/README.md): why the library works this way, including [ADR-0023](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/0023-nanoserver-inproc-class-factory-fallback.md) through [ADR-0038](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/docs/adr/0038-rcw-free-inproc-server-probing-and-worker-manifest-rewriting.md).
 - 📖 [Microsoft: registration-free COM interop](https://learn.microsoft.com/en-us/dotnet/framework/interop/registration-free-com-interop).
 - 📖 [Microsoft: activation contexts](https://learn.microsoft.com/en-us/windows/win32/sbscs/activation-contexts).
 

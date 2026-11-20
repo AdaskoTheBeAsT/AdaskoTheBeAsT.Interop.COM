@@ -1,6 +1,6 @@
 # ADR-0021: Consolidate Supported Target Frameworks to Modern .NET and Supported .NET Framework
 
-- Status: Accepted
+- Status: Superseded by [ADR-0025](0025-update-target-frameworks-to-net11-net10-and-netframework.md)
 - Date: 2026-09-10
 - Deciders: @AdaskoTheBeAsT
 - Release: v4.0.0

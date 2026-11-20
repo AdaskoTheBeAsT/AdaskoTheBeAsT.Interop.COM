@@ -41,7 +41,9 @@ public sealed class ComObjectHandle<T>
         IReadOnlyList<IntPtr> activationContextHandles,
         IReadOnlyList<IntPtr> activationCookies,
         bool pumpPendingMessages = true,
-        ActivationContextApi? activationContextApi = null)
+        ActivationContextApi? activationContextApi = null,
+        IReadOnlyList<ActivationContextApi.ModuleLease>? moduleLeases = null,
+        bool unloadModulesOnDeactivate = false)
     {
         ThrowHelper.ThrowIfNull(comObject, nameof(comObject));
         ThrowHelper.ThrowIfNull(activationContextHandles, nameof(activationContextHandles));
@@ -50,7 +52,9 @@ public sealed class ComObjectHandle<T>
         ComObject = comObject;
         ActivationContextHandles = [.. activationContextHandles];
         ActivationCookies = [.. activationCookies];
+        ModuleLeases = moduleLeases is null ? [] : [.. moduleLeases];
         PumpPendingMessages = pumpPendingMessages;
+        UnloadModulesOnDeactivate = unloadModulesOnDeactivate;
         ContextApi = activationContextApi ?? ActivationContextApi.Instance;
     }
 
@@ -100,9 +104,13 @@ public sealed class ComObjectHandle<T>
 
     internal List<IntPtr> ActivationCookies { get; }
 
+    internal List<ActivationContextApi.ModuleLease> ModuleLeases { get; }
+
     internal bool IsReleasing { get; set; }
 
     internal bool PumpPendingMessages { get; }
+
+    internal bool UnloadModulesOnDeactivate { get; }
 
     internal ActivationContextApi ContextApi { get; }
 
@@ -163,6 +171,7 @@ public sealed class ComObjectHandle<T>
         ComObject = default;
         ActivationContextHandles.Clear();
         ActivationCookies.Clear();
+        ModuleLeases.Clear();
 #pragma warning disable S3971, CA1816 // Executor.Free is also an explicit release path, without calling Dispose.
         GC.SuppressFinalize(this);
 #pragma warning restore S3971, CA1816

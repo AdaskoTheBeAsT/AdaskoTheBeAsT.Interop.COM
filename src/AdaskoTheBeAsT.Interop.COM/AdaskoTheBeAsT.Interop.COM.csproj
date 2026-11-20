@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net9.0;net8.0;net481;net48;net472</TargetFrameworks>
+    <TargetFrameworks>net11.0;net10.0;net481;net48;net472</TargetFrameworks>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM</PackageProjectUrl>
     <Copyright>Adam "AdaskoTheBeAsT" Pluciński</Copyright>
     <PackageTags>COM;Interop</PackageTags>
-    <PackageReleaseNotes>See CHANGELOG.md and MIGRATION.md in the repository for v4.2.0 release notes and upgrade guidance: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>See CHANGELOG.md and MIGRATION.md in the repository for v5.0.0 release notes and upgrade guidance: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -28,6 +28,10 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(MSBuildProjectName).Test" />

@@ -8,7 +8,7 @@
             </Include>
             <Exclude>
                 <!-- exclude test assemblies -->
-                <ModulePath>(?i)(^|.*[\\/])[^\\/]*\.(test|tests|integrationtest|integrationtests)\.dll$</ModulePath>
+                <ModulePath>(?i)(^|.*[\\/])[^\\/]*\.(test|tests|integrationtest|integrationtests)\.(dll|exe)$</ModulePath>
             </Exclude>
         </ModulePaths>
 

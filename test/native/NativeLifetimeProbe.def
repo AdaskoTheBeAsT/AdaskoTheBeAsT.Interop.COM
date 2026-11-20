@@ -3,3 +3,25 @@ EXPORTS
     CreateLifetimeProbe
     GetDestroyedCount
     GetLastReleaseThreadId
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
+    GetActiveComObjectCount
+    SetForceBusyUnload
+    ResetProbeModuleState
+    CreateDelphiBorrowedInt32SafeArray
+    InspectAndFreeDelphiSafeArray
+    CreateOwnedDoubleSafeArray
+    CreateBstrSafeArray
+    CreateMixedVariantSafeArray
+    CreateRank2Int32SafeArray
+    DestroyNativeSafeArray
+    CreateNativePersistRunnableProbe
+    CreateNativeMemoryStream
+    RewindNativeMemoryStream
+    ExerciseNativeDispenserFactory
+    InvokeImportedOleRun
+    PopulateProbeComErrorInfo
+    ParseDoubleWithThreadLocale
+    FormatDoubleWithThreadLocale
+    InvokeImportedCoUninitializeTwice
+    InvokeImportedOleUninitializeTwice

@@ -19,7 +19,6 @@ namespace AdaskoTheBeAsT.Interop.COM;
 [SuppressUnmanagedCodeSecurity]
 internal static class NanoServerStaShim
 {
-    private const uint PageExecuteReadWrite = 0x40;
     private const ushort Pe32Magic = 0x10B;
     private const ushort Pe32PlusMagic = 0x20B;
     private const int ImportDirectoryIndex = 1;
@@ -42,7 +41,12 @@ internal static class NanoServerStaShim
         "ext-ms-win-com-sta-l1-",
     ];
 
+#if NET10_0_OR_GREATER
+    private static readonly Lock HookLock = new();
+#endif
+#if NET472_OR_GREATER
     private static readonly object HookLock = new();
+#endif
     private static readonly List<ModuleHookState> HookedModules = [];
 
     private static readonly ApiSetQueryApiSetPresenceDelegate HookedPresenceDelegate = OnApiSetQueryApiSetPresence;
@@ -61,14 +65,17 @@ internal static class NanoServerStaShim
     private static GetModuleHandleWDelegate? _originalGetModuleHandleW;
     private static OsStaShimActionDelegate? _osStaShimRefresh;
     private static OsStaShimActionDelegate? _osStaShimRestoreOriginal;
+    private static IntPtr _osStaShimModuleHandle;
     private static bool _hasOsStaShimModule;
     private static IntPtr _combaseHandle;
     private static bool _isNanoServer;
+    private static bool _forwardersInitialized;
     private static bool _processExitRegistered;
     private static Thread? _mainStaThread;
     private static ManualResetEventSlim? _mainStaReadyEvent;
     private static ManualResetEventSlim? _mainStaStopEvent;
     private static uint _mainStaThreadId;
+    private static int _mainStaHostReadyFastFlag = 1;
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate void OsStaShimActionDelegate();
@@ -93,6 +100,10 @@ internal static class NanoServerStaShim
 
     internal static bool IsInstalled { get; private set; }
 
+    internal static bool IsNanoServer => _isNanoServer;
+
+    internal static IntPtr OsStaShimModuleHandle => _osStaShimModuleHandle;
+
     [ExcludeFromCodeCoverage]
     internal static void Initialize()
     {
@@ -109,12 +120,17 @@ internal static class NanoServerStaShim
                 _processExitRegistered = true;
             }
 
-            var systemDir = Environment.SystemDirectory;
-            var win32uPath = Path.Combine(systemDir, "win32u.dll");
-            _isNanoServer = !File.Exists(win32uPath);
-            if (_isNanoServer)
+            if (!_forwardersInitialized)
             {
-                PreloadForwarders(systemDir);
+                var systemDir = Environment.SystemDirectory;
+                var win32uPath = Path.Combine(systemDir, "win32u.dll");
+                _isNanoServer = !File.Exists(win32uPath);
+                if (_isNanoServer)
+                {
+                    PreloadForwarders(systemDir);
+                }
+
+                _forwardersInitialized = true;
             }
 
             RefreshStateCore();
@@ -140,6 +156,11 @@ internal static class NanoServerStaShim
     [ExcludeFromCodeCoverage]
     internal static void WaitForMainStaHostReady()
     {
+        if (Volatile.Read(ref _mainStaHostReadyFastFlag) != 0)
+        {
+            return;
+        }
+
         ManualResetEventSlim? readyEvent;
         Thread? hostThread;
         lock (HookLock)
@@ -186,6 +207,17 @@ internal static class NanoServerStaShim
         }
 
         return _hasOsStaShimModule || QueryOriginalWindowApiSetPresence();
+    }
+
+    [ExcludeFromCodeCoverage]
+    internal static void WritePointerWithProtection(IntPtr address, IntPtr value)
+    {
+        // Strict W^X: IAT and delay-load data slots are non-executable pointers; temporarily grant PAGE_READWRITE only.
+        if (NativeMethods.VirtualProtect(address, new UIntPtr((uint)IntPtr.Size), NativeMethods.PAGE_READWRITE, out var oldProtect))
+        {
+            Marshal.WriteIntPtr(address, value);
+            _ = NativeMethods.VirtualProtect(address, new UIntPtr((uint)IntPtr.Size), oldProtect, out _);
+        }
     }
 
     [ExcludeFromCodeCoverage]
@@ -399,7 +431,7 @@ internal static class NanoServerStaShim
     [ExcludeFromCodeCoverage]
     private static void RefreshStateCore()
     {
-        var forceShim = NanoServerOptions.ForceInProcessStaShim;
+        var forceShim = NanoServerOptions.ReadForceInProcessStaShimRaw();
         if (!_isNanoServer && !forceShim)
         {
             if (IsInstalled)
@@ -416,7 +448,7 @@ internal static class NanoServerStaShim
         }
 
         EnsureModulesDiscovered();
-        var enableLibShim = NanoServerOptions.EnableStaShim;
+        var enableLibShim = NanoServerOptions.ReadEnableStaShimRaw();
         var osShimDisabled = NanoServerOptions.IsEnvironmentFlagTrue(NanoServerOptions.DisableOsStaShimEnvironmentVariable);
         var osStaAvailable = !osShimDisabled && (_hasOsStaShimModule || QueryOriginalWindowApiSetPresence());
         var useInProcessShim = enableLibShim && (!osStaAvailable || forceShim);
@@ -496,6 +528,7 @@ internal static class NanoServerStaShim
             return;
         }
 
+        Volatile.Write(ref _mainStaHostReadyFastFlag, 0);
         var readyEvent = new ManualResetEventSlim(initialState: false);
         var stopEvent = new ManualResetEventSlim(initialState: false);
         var thread = new Thread(() => MainStaHostThreadProc(readyEvent, stopEvent))
@@ -516,6 +549,7 @@ internal static class NanoServerStaShim
         _mainStaThreadId = NativeMethods.GetCurrentThreadId();
         NativeMethods.CoUninitialize();
         var hr = NativeMethods.CoInitializeEx(IntPtr.Zero, NativeMethods.COINIT_APARTMENTTHREADED);
+        Volatile.Write(ref _mainStaHostReadyFastFlag, 1);
         readyEvent.Set();
         if (hr < 0)
         {
@@ -543,6 +577,7 @@ internal static class NanoServerStaShim
         _mainStaStopEvent = null;
         _mainStaReadyEvent = null;
         _mainStaThreadId = 0;
+        Volatile.Write(ref _mainStaHostReadyFastFlag, 1);
 
         stopEvent?.Set();
         if (threadId != 0)
@@ -588,6 +623,7 @@ internal static class NanoServerStaShim
         var osShimHandle = EnsureModuleLoaded("nanoserver_sta_shim.dll", forwardersDir);
         if (osShimHandle != IntPtr.Zero)
         {
+            _osStaShimModuleHandle = osShimHandle;
             var refreshPtr = NativeMethods.GetProcAddress(osShimHandle, "NanoServerStaShim_Refresh");
             var restorePtr = NativeMethods.GetProcAddress(osShimHandle, "NanoServerStaShim_RestoreOriginal");
             if (refreshPtr != IntPtr.Zero && restorePtr != IntPtr.Zero)
@@ -687,16 +723,6 @@ internal static class NanoServerStaShim
 
     private static IntPtr AddRva(IntPtr baseAddress, int rva)
         => new(baseAddress.ToInt64() + rva);
-
-    [ExcludeFromCodeCoverage]
-    private static void WritePointerWithProtection(IntPtr address, IntPtr value)
-    {
-        if (NativeMethods.VirtualProtect(address, new UIntPtr((uint)IntPtr.Size), PageExecuteReadWrite, out var oldProtect))
-        {
-            Marshal.WriteIntPtr(address, value);
-            _ = NativeMethods.VirtualProtect(address, new UIntPtr((uint)IntPtr.Size), oldProtect, out _);
-        }
-    }
 
     [ExcludeFromCodeCoverage]
     [StructLayout(LayoutKind.Auto)]
@@ -850,7 +876,7 @@ internal static class NanoServerStaShim
 
         private static void WriteInt32WithProtection(IntPtr address, int value)
         {
-            if (NativeMethods.VirtualProtect(address, new UIntPtr(4), PageExecuteReadWrite, out var oldProtect))
+            if (NativeMethods.VirtualProtect(address, new UIntPtr(4), NativeMethods.PAGE_READWRITE, out var oldProtect))
             {
                 Marshal.WriteInt32(address, value);
                 _ = NativeMethods.VirtualProtect(address, new UIntPtr(4), oldProtect, out _);

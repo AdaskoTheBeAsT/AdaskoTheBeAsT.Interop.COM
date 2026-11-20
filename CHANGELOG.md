@@ -6,6 +6,36 @@ Dates shown for historical releases refer to repository tags, not NuGet publicat
 
 See the [migration guide](MIGRATION.md) for required upgrade steps and the [README](README.md) for current usage.
 
+## [5.0.0]
+
+### Breaking changes
+
+- Upgrade the SDK in `global.json` to `.NET 11.0.100` (`LangVersion` `14.0`), add `net11.0`, and remove `net8.0` and `net9.0` package assets. Supported targets are now `net11.0`, `net10.0`, `net481`, `net48`, and `net472`.
+- Validate and normalize manifests prior to activation (`ComManifestParser`): malformed GUIDs, duplicate/conflicting CLSID/ProgID/TypeLib declarations, and unsafe `<file>` paths (path traversal, UNC, Win32 device prefixes, root-relative, or drive-relative paths) now fail deterministically through `Result.Exception` before loading native modules or touching registry keys.
+- Honor manifest `threadingModel` (`Apartment` / `Single` -> `STA`, `Free` / `Both` / `Neutral` -> `MTA`) or explicit `ComActivationOptions.ApartmentState` when initializing uninitialized threads during Nano Server fallback instead of unconditionally forcing `COINIT_MULTITHREADED`. Existing threads with a conflicting apartment propagate `RPC_E_CHANGED_MODE` (`0x80010106`) rather than silently mutating apartment state.
+
+### Added
+
+- Persistent multi-coclass activation scopes via `IComActivationScope`, `ComActivationOptions`, `ComCreateResult<T>`, `IComActivationExecutor`, `ComExecutorExtensions`, and `Executor.Activate` / `Executor.Deactivate`, while keeping `IComExecutor` binary- and source-compatible for existing implementations and mocks.
+- Opt-in reference-counted native module leases (`ComActivationOptions.PreloadModules`, `ComActivationOptions.UnloadModulesOnDeactivate`), `LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS` (`0x00001100`) sibling DLL resolution, `DllCanUnloadNow() == S_OK` + `CoFreeUnusedLibrariesEx(0, 0)` unload gating after tracked RCW release and factory revocation, and `Executor.TryUnloadUnusedModules()` for sweeping deferred modules once leaked native references drop to zero.
+- Manifest `progid`, `versionIndependentProgId`, and child `<progid>`, `<typelib>`, `<comInterfaceProxyStub>`, and `<comInterfaceExternalProxyStub>` support on in-process fallback, including `oleaut32!LoadTypeLibEx`, declared proxy/stub `CLASS_E_CLASSNOTAVAILABLE` tolerance (`IgnoreUnavailableProxyStubClasses`) without masking unavailable ordinary coclasses, bidirectional `HKCU\Software\Classes\<ProgId>\CLSID` and `HKCU\Software\Classes\CLSID\{CLSID}\ProgID` + `VersionIndependentProgID` reference-counted leases (`RegisterCurrentUserProgIdsOnFallback`, `RegisterCurrentUserTypeLibsOnFallback`), and read-only `HKCR` presence short-circuiting (`SkipCurrentUserRegistrationWhenPresentInClassesRoot = true` by default) to avoid redundant `HKCU` writes when matching machine registrations already exist. Manifest `<description>` licensee text is never retained or emitted to diagnostics.
+- Explicit WinSxS bypass (`ComActivationOptions.ForceInProcessFallback`) for Desktop Windows and Windows Server Core isolated STA worker pools, plus apartment-scoped (`(Apartment, Clsid)`) `CoRegisterClassObject` reference counting across nested STA scopes and concurrent MTA scopes with fail-closed conflicting `DllPath` detection.
+- Direct zero-manifest / zero-registry `HMODULE` instantiation via `ComClassFactory` (`CreateInstance`, `CreateInstance<TInterface>`, `CreateInstanceFromDll`, `CreateInstanceFromDll<TInterface>`) and scope-tracked `IComActivationScope.CreateInstance` / `ComActivationScopeExtensions.CreateInstance` helpers.
+- `ComModuleDiagnostics` (`GetInstanceModuleHandle`, `InspectInstanceModule`, `VerifyInstanceModule`, RCW-free `GetRegisteredInprocServerPath`, `InspectRegisteredInprocServer`, `VerifyRegisteredInprocServer`, `ComModuleInspectionResult`, `ComModuleVerificationStatus`) to inspect vtable slot ownership by `HMODULE` and path on live instances or raw `CoCreateInstance` probes without allocating managed RCWs, distinguishing concrete worker-DLL mismatches from `Inconclusive` shared runtime/proxy modules (`combase.dll`, `ole32.dll`, `oleaut32.dll`, `rpcrt4.dll`, `msvbvm60.dll`, CLR).
+- `ComErrorDiagnostics` and `ComErrorInfo` (`ConsumeCurrentErrorInfo`, `PeekCurrentErrorInfo`, `CreateExceptionForHr`, `TryGetVisualBasicErrorNumber`, `TryGetInterfaceErrorOffset`) for destructive and non-destructive thread `IErrorInfo` inspection, enriched `COMException` creation (`Data["ComErrorInfo"]`), and VB6 `FACILITY_CONTROL` (`0x800Axxxx`) / `FACILITY_ITF` (`0x80040200+`) `HRESULT` unpacking.
+- `ComAutomationLocaleScope` (`Enter`, `EnterInvariant`, `UsEnglishLocaleId = 0x0409`, `UkEnglishLocaleId = 0x0809`, `InvariantLocaleId = 0x007F`) for thread-affine synchronization of Win32 kernel `GetThreadLocale`/`SetThreadLocale` and `CultureInfo.CurrentCulture` across OLE Automation calls.
+- Automatic CoreCLR native STA `OleMainThreadWndClass` pre-warming via `NanoServerOptions.EnsureCurrentStaThreadInitialized()` on STA entry points (`Executor.Activate`, `Execute`, `Create`), and opt-in per-module W^X unbalanced uninitialize guards via `ComModuleQuirks.SuppressUninitializeImports` / `RestoreUninitializeImports` (rejecting OS, COM, and CLR system modules).
+- `ComManifestRewriter` (`FromFile`, `FromXml`, `WithAssemblyIdentityName`, `RenameFile`, `RenameFiles`, `RemoveFile`, `StripDescriptions`, `ToXmlString`, `ToUtf8Bytes`, `SaveIfChanged`) for validated, idempotent, PII-sanitized worker SxS manifest staging.
+- `SafeArrayMarshal` utilities for borrowed vs. owned unmanaged `SAFEARRAY*` pointers (including Borland Delphi arrays omitting `FADF_HAVEVARTYPE`), ownership-aware `BSTR` and `VARIANT` arrays, `0`-based / `1`-based / negative lower-bound normalization (`NormalizeVariantArray<T>`), and VB6 `1`-based array creation (`CreateOneBasedArray<T>`).
+- Opt-in W^X Nano Server compatibility providers for older container images: `NanoServerOptions.EnableLegacyOle2Shim` (`ADASKO_NANOSERVER_ENABLE_LEGACY_OLE2_SHIM`) patching `OleRun`, `OleSaveToStream`, `OleLoadFromStream`, `CoInitialize`, `OleInitialize`, and `OleUninitialize` IAT slots, and `NanoServerOptions.EnableDispenserManagerFallback` (`ADASKO_NANOSERVER_ENABLE_DISPENSER_FALLBACK`) registering a static-lifetime pure native x86/x64 `CLSID_DispenserManager` provider (`PAGE_READWRITE` -> `PAGE_EXECUTE_READ`), automatically deferring when OS `nanoserver_sta_shim.dll` advertises capabilities via `NanoServerStaShim_GetCapabilities`.
+- Idempotent startup preparation (`NanoServerOptions.PrepareProcess()`) and lock-free `Volatile.Read` fast paths for multi-STA worker hosts.
+- `ComInteropEventSource` events `ScopeLeaked` (ID 3) and `ScopeReleaseFailed` (ID 4).
+- [ADR-0025](docs/adr/0025-update-target-frameworks-to-net11-net10-and-netframework.md), [ADR-0026](docs/adr/0026-activation-scopes-and-derived-icomactivationexecutor.md), [ADR-0027](docs/adr/0027-reference-counted-module-leases-and-apartment-aware-fallback.md), [ADR-0028](docs/adr/0028-manifest-normalization-proxy-stub-handling-and-hkcu-leases.md), [ADR-0029](docs/adr/0029-vtable-module-isolation-diagnostics.md), [ADR-0030](docs/adr/0030-safearray-marshal-for-vb6-and-delphi-interop.md), [ADR-0031](docs/adr/0031-wx-enforcement-legacy-ole2-dispenser-manager-and-startup-prep.md), [ADR-0032](docs/adr/0032-force-inproc-fallback-and-apartment-class-factory-refcounting.md), [ADR-0033](docs/adr/0033-direct-hmodule-class-factory-instantiation.md), [ADR-0034](docs/adr/0034-thread-ierrorinfo-diagnostics-and-vb6-hresult-unpacking.md), [ADR-0035](docs/adr/0035-bidirectional-progid-leases-and-hkcu-short-circuiting.md), [ADR-0036](docs/adr/0036-coreclr-sta-prewarming-and-per-module-couninitialize-guard.md), [ADR-0037](docs/adr/0037-thread-affine-automation-locale-scope.md), and [ADR-0038](docs/adr/0038-rcw-free-inproc-server-probing-and-worker-manifest-rewriting.md), plus expanded x86/x64 native C++ and managed unit tests covering all new activation, marshaling, diagnostic, manifest-rewriting, and W^X Nano Server subsystems.
+
+### Security
+
+- Eliminate `PAGE_EXECUTE_READWRITE` (`0x40`) from `NanoServerStaShim` IAT patching in favor of temporary `PAGE_READWRITE` (`0x04`) and restoration of the original page protection via `VirtualProtect`, enforcing strict Write-Xor-Execute (W^X) across the entire library.
+
 ## [4.2.0]
 
 ### Added
@@ -112,6 +142,8 @@ Older README and ADR entries use version labels that do not line up consistently
 
 The [architecture decision index](docs/adr/README.md) provides additional historical context.
 
+[5.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.2.0...v5.0.0
+[4.2.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.0.1...v4.1.0
 [4.0.1]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/compare/v3.0.0...v4.0.0

@@ -28,10 +28,24 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0018](0018-eventsource-for-leaked-handles.md) | Diagnostic `EventSource` for Leaked `ComObjectHandle<T>` | Accepted | v3.0.0 |
 | [0019](0019-safe-activation-context-cleanup.md) | Enforce Activation-Context Lifetime and Bound Message Pumping | Accepted | v4.0.0 |
 | [0020](0020-host-owned-message-pumping.md) | Support Host-Owned Message Pumping and Explicit RCW Ownership | Accepted | v4.0.0 |
-| [0021](0021-consolidate-supported-target-frameworks.md) | Consolidate Supported Target Frameworks to Modern .NET and Supported .NET Framework | Accepted | v4.0.0 |
+| [0021](0021-consolidate-supported-target-frameworks.md) | Consolidate Supported Target Frameworks to Modern .NET and Supported .NET Framework | Superseded by ADR-0025 | v4.0.0 |
 | [0022](0022-explicit-intptr-and-analyzer-hygiene.md) | Preserve Explicit `IntPtr`/`UIntPtr` Win32 Signatures and Isolate Multi-Architecture Solution Builds | Accepted | v4.0.1 |
 | [0023](0023-nanoserver-inproc-class-factory-fallback.md) | Fall Back to Manifest-Driven In-Process Class Registration on Windows Nano Server | Accepted | v4.1.0 |
 | [0024](0024-nanoserver-sta-shim-and-options.md) | Provide an In-Process User-Mode STA & Win32 Message-Queue Shim and `NanoServerOptions` Toggles on Windows Nano Server | Accepted | v4.2.0 |
+| [0025](0025-update-target-frameworks-to-net11-net10-and-netframework.md) | Update Supported Target Frameworks to .NET 11, .NET 10, and Supported .NET Framework | Accepted | v5.0.0 |
+| [0026](0026-activation-scopes-and-derived-icomactivationexecutor.md) | Introduce Persistent Multi-Coclass Activation Scopes via `IComActivationScope` and Derived `IComActivationExecutor` | Accepted | v5.0.0 |
+| [0027](0027-reference-counted-module-leases-and-apartment-aware-fallback.md) | Reference-Counted Native Module Leases, `DllCanUnloadNow` Unload Safety, and Apartment-Aware Fallback Initialization | Accepted | v5.0.0 |
+| [0028](0028-manifest-normalization-proxy-stub-handling-and-hkcu-leases.md) | Pre-Activation Manifest Normalization, Declared Proxy/Stub Differentiation, and Reference-Counted `HKCU` Registry Leases | Accepted | v5.0.0 |
+| [0029](0029-vtable-module-isolation-diagnostics.md) | Vtable-to-`HMODULE` Worker Isolation Diagnostics (`ComModuleDiagnostics`) | Accepted | v5.0.0 |
+| [0030](0030-safearray-marshal-for-vb6-and-delphi-interop.md) | Ownership-Aware `SafeArrayMarshal` Utilities for VB6 1-Based and Delphi Untyped `SAFEARRAY*` Payloads | Accepted | v5.0.0 |
+| [0031](0031-wx-enforcement-legacy-ole2-dispenser-manager-and-startup-prep.md) | Enforce Strict W^X Memory Protection, Opt-In Legacy OLE2 & `CLSID_DispenserManager` Fallbacks, and Startup Preparation on Nano Server | Accepted | v5.0.0 |
+| [0032](0032-force-inproc-fallback-and-apartment-class-factory-refcounting.md) | Explicit WinSxS Bypass (`ForceInProcessFallback`) and Apartment-Scoped Class-Factory Reference Counting | Accepted | v5.0.0 |
+| [0033](0033-direct-hmodule-class-factory-instantiation.md) | Direct `HMODULE` Class-Factory Instantiation via `ComClassFactory` and Activation-Scope Helpers | Accepted | v5.0.0 |
+| [0034](0034-thread-ierrorinfo-diagnostics-and-vb6-hresult-unpacking.md) | Thread `IErrorInfo` Diagnostics and VB6 / `FACILITY_ITF` `HRESULT` Unpacking | Accepted | v5.0.0 |
+| [0035](0035-bidirectional-progid-leases-and-hkcu-short-circuiting.md) | Bidirectional `ProgID` / `VersionIndependentProgID` Registry Leases and `HKCR`-Presence Short-Circuiting | Accepted | v5.0.0 |
+| [0036](0036-coreclr-sta-prewarming-and-per-module-couninitialize-guard.md) | CoreCLR STA `OleMainThreadWndClass` Pre-Warming and Opt-In Per-Module Unbalanced `CoUninitialize` IAT Guard | Accepted | v5.0.0 |
+| [0037](0037-thread-affine-automation-locale-scope.md) | Thread-Affine Win32 Automation `LCID` and Managed Culture Scope (`ComAutomationLocaleScope`) | Accepted | v5.0.0 |
+| [0038](0038-rcw-free-inproc-server-probing-and-worker-manifest-rewriting.md) | RCW-Free In-Proc Server Provenance Probing and Validated Worker SxS Manifest Rewriting | Accepted | v5.0.0 |
 
 ## Conventions
 

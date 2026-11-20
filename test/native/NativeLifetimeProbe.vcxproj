@@ -36,7 +36,7 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>$(MSBuildThisFileDirectory)NativeLifetimeProbe.def</ModuleDefinitionFile>
-      <AdditionalDependencies>uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ole32.lib;oleaut32.lib;uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <RegisterOutput>false</RegisterOutput>
     </Link>
   </ItemDefinitionGroup>
