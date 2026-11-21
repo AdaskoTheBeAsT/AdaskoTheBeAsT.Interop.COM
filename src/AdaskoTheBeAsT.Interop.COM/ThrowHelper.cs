@@ -28,4 +28,28 @@ internal static class ThrowHelper
 #pragma warning restore CA1510, RCS1256
 #endif
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#pragma warning disable S3236 // paramName is forwarded from the real caller, not the local 'argument' expression
+    public static void ThrowIfNullOrWhiteSpace(string? argument, string paramName)
+#pragma warning restore S3236
+    {
+#if NET8_0_OR_GREATER
+#pragma warning disable S3236
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument, paramName);
+#pragma warning restore S3236
+#else
+#pragma warning disable CA1510, RCS1256
+        if (argument is null)
+        {
+            throw new ArgumentNullException(paramName);
+        }
+
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            throw new ArgumentException("Value cannot be empty or whitespace.", paramName);
+        }
+#pragma warning restore CA1510, RCS1256
+#endif
+    }
 }

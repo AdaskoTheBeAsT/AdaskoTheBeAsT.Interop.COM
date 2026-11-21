@@ -1,6 +1,6 @@
 # Advanced usage
 
-These examples supplement the [README](../README.md) and target version **4.0.0**. See the [migration guide](../MIGRATION.md) when upgrading.
+These examples supplement the [README](../README.md) and target version **5.0.0**. See the [migration guide](../MIGRATION.md) when upgrading.
 
 Unless a complete class is shown, snippets assume your application supplies the paths, COM types, callbacks, DI registrations, and error reporting. Keep all handle operations on their creating thread.
 
@@ -29,7 +29,165 @@ if (!result.Success)
 
 Use `System.Collections.Generic` for `List<T>`. Contexts activate in collection order and deactivate in reverse order. If multiple manifests describe the same class, activation-stack precedence matters; avoid relying on ambiguous duplicate declarations.
 
-`Execute` manages activation contexts only. Use `Create` for an exclusively owned RCW that needs a handle, and follow the [lifetime rules](../README.md#lifetime-and-threading-rules).
+`Execute` manages activation contexts only. Use `Create` for an exclusively owned RCW that needs a handle, or `Activate` (`IComActivationScope`) when multiple coclasses share one session lifetime, and follow the [lifetime rules](../README.md#lifetime-and-threading-rules).
+
+## Multi-coclass activation scopes and isolated worker recycling
+
+When one calculation or workflow instantiates several coclasses across one or more manifests — or recycles per-worker COM DLL copies in isolated directories to reset mutable native `.data`/`.bss` state — use `Activate` / `Deactivate` with `ComActivationOptions`:
+
+```csharp
+var options = new ComActivationOptions
+{
+    PreloadModules = true,
+    UnloadModulesOnDeactivate = true,
+    PumpPendingMessages = false,
+};
+
+var activation = executor.Activate(descriptors, options);
+if (!activation.Success)
+{
+    throw new InvalidOperationException("Scope activation failed.", activation.Exception);
+}
+
+using var scope = activation.Value!;
+var engine = scope.TrackObject(new CalcEngineClass());
+var formatter = scope.TrackObject(new CalcFormatterClass());
+
+// Verify the live COM object's direct native interface resolves to the isolated worker DLL
+// rather than a stray global HKLM registration:
+if (scope.LoadedModuleHandles.Count > 0)
+{
+    ComModuleDiagnostics.VerifyInstanceModule(
+        engine,
+        scope.LoadedModuleHandles[0],
+        expectedDllPath: descriptors[0].ComAssemblyPath,
+        interfaceId: typeof(ICalcEngine).GUID);
+}
+
+// Perform cross-coclass work on the owning thread...
+
+var release = executor.Deactivate(scope);
+if (!release.Success)
+{
+    throw new InvalidOperationException("Scope deactivation failed.", release.Exception);
+}
+```
+
+During `Deactivate`, tracked RCWs are released in reverse registration order via `Marshal.FinalReleaseComObject`, activation contexts / class-factory registrations are torn down, `CoFreeUnusedLibrariesEx(0, 0)` runs, and each module whose lease count reaches zero is freed via `FreeLibrary` only if `DllCanUnloadNow()` returns `S_OK` (`0`). If an untracked native reference temporarily reports `S_FALSE`, the module stays mapped safely until a later `Executor.TryUnloadUnusedModules()` sweep.
+
+### Staging renamed worker manifests, Desktop SxS bypass, RCW-free probing, and direct `HMODULE` instantiation
+
+When staging dedicated per-worker directories (`worker_00\CalcEngine_00.dll`) across parallel STA threads on Desktop Windows, Windows Server Core, or Nano Server:
+
+1. **Rewrite and sanitize staged SxS manifests idempotently (`ComManifestRewriter`):**
+
+```csharp
+bool wrote = ComManifestRewriter
+    .FromFile(templateManifestPath)
+    .WithAssemblyIdentityName("CalcEngine.Worker00")
+    .RenameFile("CalcEngine.dll", "CalcEngine_00.dll")
+    .RemoveFile("OptionalDesignerAddin.dll")
+    .StripDescriptions()
+    .SaveIfChanged(workerManifestPath);
+```
+
+2. **Bypass Desktop WinSxS identity caching (`ForceInProcessFallback = true`), probe `CLSID` provenance without allocating a managed RCW, or instantiate directly via `DllGetClassObject` (`scope.CreateInstance<T>` / `ComClassFactory`):**
+
+```csharp
+var workerOptions = new ComActivationOptions
+{
+    ForceInProcessFallback = true,
+    PreloadModules = true,
+    UnloadModulesOnDeactivate = true,
+    PumpPendingMessages = false,
+};
+
+var workerActivation = executor.Activate(workerDllPath, workerManifestPath, workerOptions);
+if (!workerActivation.Success)
+{
+    throw new InvalidOperationException("Worker activation failed.", workerActivation.Exception);
+}
+
+using var workerScope = workerActivation.Value!;
+
+// Pre-flight CoCreateInstance provenance check with ZERO managed RCW allocations
+// (so Deactivate + FreeLibrary never requires GC.Collect()):
+ComModuleDiagnostics.VerifyRegisteredInprocServer(
+    typeof(CalcEngineClass).GUID,
+    workerScope.LoadedModuleHandles[0],
+    expectedDllPath: workerDllPath,
+    interfaceId: typeof(ICalcEngine).GUID);
+
+// Direct DllGetClassObject -> IClassFactory::CreateInstance from LoadedModuleHandles[0],
+// automatically registered with workerScope.TrackObject(...):
+var directCreate = workerScope.CreateInstance<ICalcEngine>(typeof(CalcEngineClass).GUID);
+if (!directCreate.Success)
+{
+    throw new InvalidOperationException("Direct coclass creation failed.", directCreate.Exception);
+}
+```
+
+## Automation `LCID` guard, `IErrorInfo` diagnostics, and per-module `CoUninitialize` quirks
+
+Legacy VB6, Delphi, and Office/OLE Automation servers rely on thread-local Win32 state that managed `CultureInfo` or default CLR exception marshaling does not normalize automatically:
+
+```csharp
+// 1. Force Win32 GetThreadLocale() = 0x0409 (en-US) for oleaut32 VarR8FromStr / IDispatch
+//    while setting CultureInfo.CurrentCulture = InvariantCulture on the owning thread:
+using (ComAutomationLocaleScope.Enter())
+{
+    int hr = nativeEngine.CalculateRate("1234.56", out double rate);
+    if (hr < 0)
+    {
+        // 2. Capture rich thread IErrorInfo (Description, Source, HelpFile, HelpContext, IID)
+        //    and unpack VB6 FACILITY_CONTROL (0x800Axxxx) error numbers:
+        if (ComErrorDiagnostics.TryGetVisualBasicErrorNumber(hr, out int vbErr))
+        {
+            // e.g. vbErr == 13 for VB6 Type Mismatch (0x800A000D)
+        }
+
+        throw ComErrorDiagnostics.CreateExceptionForHr(hr);
+    }
+}
+
+// 3. Opt-in per-HMODULE W^X IAT guard ONLY for defective legacy DLLs that emit an extra
+//    unbalanced CoUninitialize() / OleUninitialize() and would otherwise tear down the STA apartment:
+ComModuleQuirks.SuppressUninitializeImports(workerScope.LoadedModuleHandles[0]);
+```
+
+## VB6 1-based and Delphi borrowed `SAFEARRAY` marshaling
+
+Use `SafeArrayMarshal` when interoperating with VB6 non-zero lower-bound arrays or Borland Delphi raw `SAFEARRAY*` pointers lacking `FADF_HAVEVARTYPE`:
+
+```csharp
+// 1. Copy an unmanaged numeric array from a caller-owned/borrowed Delphi SAFEARRAY* without destroying it:
+int[] borrowedValues = SafeArrayMarshal.CopyFromBorrowedSafeArray<int>(borrowedSafeArrayPtr);
+
+// 2. Copy and deterministically SafeArrayDestroy a callee-allocated SAFEARRAY*:
+double[] ownedValues = SafeArrayMarshal.ConsumeOwnedSafeArray<double>(ownedSafeArrayPtr);
+
+// 3. Normalize a 1-based VB6 System.Array (or VT_VARIANT array) returned as object into a 0-based T[]:
+double[] normalized = SafeArrayMarshal.NormalizeVariantArray<double>(vb6VariantResult);
+
+// 4. Create a 1-based SAFEARRAY-compatible System.Array for VB6 ByRef array inputs:
+Array vb6Input = SafeArrayMarshal.CreateOneBasedArray(new[] { 10.0, 20.0, 30.0 });
+```
+
+Ownership-aware `CopyBorrowedBstrArray` / `ConsumeOwnedBstrArray` and `CopyBorrowedVariantArray` / `ConsumeOwnedVariantArray` helpers are also available for string and `VARIANT` payloads.
+
+## Process startup preparation for concurrent STA worker pools
+
+On headless Windows Nano Server containers, call `NanoServerOptions.PrepareProcess()` once during single-threaded host startup before spawning concurrent STA worker threads:
+
+```csharp
+// Optional compatibility shims for older Nano Server container images (< 1.8.0):
+// NanoServerOptions.EnableLegacyOle2Shim = true;
+// NanoServerOptions.EnableDispenserManagerFallback = true;
+
+NanoServerOptions.PrepareProcess();
+```
+
+This ensures `%SystemRoot%\System32\forwarders` (`SysWOW64\forwarders` on x86) `PATH` setup, base DLL preloading, W^X IAT patching, and the background `NanoServerMainStaHost` thread are initialized before parallel workers start.
 
 ## Dependency injection and decorators
 

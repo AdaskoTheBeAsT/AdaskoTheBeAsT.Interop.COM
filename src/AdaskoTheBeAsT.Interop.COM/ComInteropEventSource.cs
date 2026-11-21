@@ -32,6 +32,10 @@ internal sealed class ComInteropEventSource
 
     internal const int HandleReleaseFailedEventId = 2;
 
+    internal const int ScopeLeakedEventId = 3;
+
+    internal const int ScopeReleaseFailedEventId = 4;
+
     private ComInteropEventSource()
     {
     }
@@ -70,6 +74,38 @@ internal sealed class ComInteropEventSource
         if (IsEnabled())
         {
             WriteEvent(HandleReleaseFailedEventId, typeName, errorMessage);
+        }
+    }
+
+    /// <summary>
+    /// Emitted when an <see cref="IComActivationScope"/> is finalized without having been disposed or deactivated.
+    /// Indicates a leak of native activation-context state and module leases.
+    /// </summary>
+    [Event(
+        ScopeLeakedEventId,
+        Level = EventLevel.Warning,
+        Message = "ComActivationScope was finalized without being disposed. Native activation-context state and module leases have leaked.")]
+    public void ScopeLeaked()
+    {
+        if (IsEnabled())
+        {
+            WriteEvent(ScopeLeakedEventId);
+        }
+    }
+
+    /// <summary>
+    /// Emitted when <c>IComActivationScope.Dispose()</c> fails to deactivate cleanly.
+    /// </summary>
+    /// <param name="errorMessage">Exception message produced by the failed deactivation, or a sentinel value.</param>
+    [Event(
+        ScopeReleaseFailedEventId,
+        Level = EventLevel.Error,
+        Message = "ComActivationScope.Dispose() failed to deactivate cleanly: {0}")]
+    public void ScopeReleaseFailed(string errorMessage)
+    {
+        if (IsEnabled())
+        {
+            WriteEvent(ScopeReleaseFailedEventId, errorMessage);
         }
     }
 }

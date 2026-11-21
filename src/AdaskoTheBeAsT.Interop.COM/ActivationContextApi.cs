@@ -3,21 +3,40 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+#if NET8_0_OR_GREATER
+using System.Runtime.Versioning;
+#endif
 using System.Threading;
-using System.Xml;
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
+#pragma warning disable MA0158 // Use System.Threading.Lock
 #pragma warning disable SA1121 // Use built-in type alias
 // An operation-scoped native boundary permits deterministic failure tests without global hooks
 // and provides the manifest-driven in-process class-factory fallback on Windows Nano Server.
+#if NET8_0_OR_GREATER
+[SupportedOSPlatform("windows")]
+#endif
 internal class ActivationContextApi
 {
 #pragma warning disable MA0176 // Optimize guid creation
     private static readonly Guid IidIClassFactory = new("00000001-0000-0000-C000-000000000046");
     private static readonly Guid IidIUnknown = new("00000000-0000-0000-C000-000000000046");
 #pragma warning restore MA0176
-    private static readonly ConcurrentDictionary<string, IntPtr> LoadedModules = new(StringComparer.OrdinalIgnoreCase);
+
+#if NET10_0_OR_GREATER
+    private static readonly Lock ModuleLock = new();
+#endif
+#if NET472_OR_GREATER
+    private static readonly object ModuleLock = new();
+#endif
+    private static readonly Dictionary<string, LoadedModuleEntry> LoadedModules = new(StringComparer.OrdinalIgnoreCase);
+
+    [ThreadStatic]
+    private static PendingLeaseContext? _pendingLeaseContext;
+
+    [ThreadStatic]
+    private static PendingCreateContext? _pendingCreateContext;
 
     private static long _nextFallbackToken = -1;
 
@@ -25,14 +44,118 @@ internal class ActivationContextApi
     private readonly ConcurrentDictionary<IntPtr, FallbackActivation> _fallbackActivations = new();
     private readonly ConcurrentDictionary<uint, List<FallbackActivation>> _threadFallbackStacks = new();
     private readonly ConcurrentDictionary<uint, int> _lastFallbackErrors = new();
+    private readonly Dictionary<ApartmentRegistrationKey, SharedClassRegistrationLease> _apartmentRegistrations = [];
+#if NET10_0_OR_GREATER
+    private readonly Lock _registrationLock = new();
+#endif
+#if NET472_OR_GREATER
+    private readonly object _registrationLock = new();
+#endif
 
     internal static ActivationContextApi Instance { get; } = new();
+
+    internal static bool IsFallbackHandle(IntPtr handle)
+        => handle != (IntPtr)(-1) && handle.ToInt64() < 0;
+
+    internal static int CollectDeferredUnloads(ActivationContextApi? contextApi = null)
+    {
+        var api = contextApi ?? Instance;
+        api.FreeUnusedLibrariesCore();
+        var candidates = new List<LoadedModuleEntry>();
+        lock (ModuleLock)
+        {
+            foreach (var entry in LoadedModules.Values)
+            {
+                if (entry.ActiveLeaseCount == 0 && !entry.RetainPermanently && entry.PendingDeferredUnload)
+                {
+                    candidates.Add(entry);
+                }
+            }
+
+            var unloaded = 0;
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (TryUnloadModuleEntryUnderLock(candidates[i], api))
+                {
+                    unloaded++;
+                }
+            }
+
+            return unloaded;
+        }
+    }
+
+    internal static IReadOnlyList<IntPtr> GetLoadedHandlesForPaths(IReadOnlyList<string> dllPaths)
+    {
+        if (dllPaths.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<IntPtr>(dllPaths.Count);
+        var seenHandles = new HashSet<IntPtr>();
+        for (var i = 0; i < dllPaths.Count; i++)
+        {
+            var path = dllPaths[i];
+            var handle = IntPtr.Zero;
+            lock (ModuleLock)
+            {
+                if (LoadedModules.TryGetValue(path, out var entry) && entry.Handle != IntPtr.Zero)
+                {
+                    handle = entry.Handle;
+                }
+            }
+
+            if (handle == IntPtr.Zero
+                && NativeMethods.GetModuleHandleExByName(
+                    NativeMethods.GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                    path,
+                    out var queried))
+            {
+                handle = queried;
+            }
+
+            if (handle != IntPtr.Zero && seenHandles.Add(handle))
+            {
+                result.Add(handle);
+            }
+        }
+
+        return result;
+    }
 
     internal virtual IntPtr CreateActCtx(ref ActCtx context) => NativeMethods.CreateActCtx(ref context);
 
     internal virtual IntPtr CreateActCtx(ref ActCtx context, string? defaultAssemblyPath, out int errorCode)
     {
         NanoServerOptions.EnsureInitialized();
+        var pending = _pendingCreateContext;
+        var options = pending?.Options ?? ComActivationOptions.Default;
+
+        // Normalize and validate manifest structure, GUIDs, duplicate CLSIDs, and path safety before touching OS state.
+        if (!ComManifestParser.TryParse(
+            context.lpSource,
+            context.lpAssemblyDirectory,
+            defaultAssemblyPath,
+            out var parsedManifest,
+            out errorCode))
+        {
+            return (IntPtr)(-1);
+        }
+
+        pending?.SetParsedManifest(parsedManifest);
+
+        if (options.ForceInProcessFallback)
+        {
+            if (!NanoServerOptions.EnableSxsFallback)
+            {
+                throw new InvalidOperationException(
+                    "ComActivationOptions.ForceInProcessFallback cannot be used when NanoServerOptions.EnableSxsFallback is disabled.");
+            }
+
+            return CreateFallbackContext(parsedManifest!, options, out errorCode);
+        }
+
         var handle = CreateActCtx(ref context);
         if (handle != (IntPtr)(-1))
         {
@@ -47,7 +170,28 @@ internal class ActivationContextApi
             return (IntPtr)(-1);
         }
 
-        return CreateFallbackContext(ref context, defaultAssemblyPath, out errorCode);
+        return CreateFallbackContext(parsedManifest!, options, out errorCode);
+    }
+
+    internal IntPtr CreateActCtxWithOptions(
+        ref ActCtx context,
+        string? defaultAssemblyPath,
+        ComActivationOptions options,
+        out ComManifestParser.ParsedManifest? parsedManifest,
+        out int errorCode)
+    {
+        var pending = new PendingCreateContext(options);
+        var previous = SwapPendingCreateContext(pending);
+        try
+        {
+            var handle = CreateActCtx(ref context, defaultAssemblyPath, out errorCode);
+            parsedManifest = pending.ParsedManifest;
+            return handle;
+        }
+        finally
+        {
+            SwapPendingCreateContext(previous);
+        }
     }
 
     internal virtual bool ActivateActCtx(IntPtr handle, out IntPtr cookie)
@@ -114,12 +258,47 @@ internal class ActivationContextApi
     internal virtual IntPtr LoadLibrary(string dllPath)
     {
         var fullPath = Path.GetFullPath(dllPath);
-        if (LoadedModules.TryGetValue(fullPath, out var cached) && cached != IntPtr.Zero)
+        var pending = _pendingLeaseContext;
+        var unloadOnDeactivate = pending?.UnloadOnDeactivate ?? false;
+
+        lock (ModuleLock)
         {
-            return cached;
+            if (!LoadedModules.TryGetValue(fullPath, out var entry) || entry.Handle == IntPtr.Zero)
+            {
+                var handle = LoadLibraryCore(fullPath);
+                if (handle == IntPtr.Zero)
+                {
+                    return IntPtr.Zero;
+                }
+
+                entry = new LoadedModuleEntry(fullPath, handle);
+                LoadedModules[fullPath] = entry;
+            }
+
+            if (!unloadOnDeactivate)
+            {
+                entry.RetainPermanently = true;
+            }
+
+            if (pending is not null)
+            {
+                entry.ActiveLeaseCount++;
+                entry.PendingDeferredUnload = false;
+                pending.AcquiredLease = new ModuleLease(entry, unloadOnDeactivate);
+            }
+
+            return entry.Handle;
+        }
+    }
+
+    internal virtual IntPtr LoadLibraryCore(string fullPath)
+    {
+        var handle = NativeMethods.LoadLibraryEx(fullPath, IntPtr.Zero, NativeMethods.LOAD_LIBRARY_SEARCH_DLL_AND_DEFAULT_DIRS);
+        if (handle == IntPtr.Zero)
+        {
+            handle = NativeMethods.LoadLibraryEx(fullPath, IntPtr.Zero, NativeMethods.LOAD_WITH_ALTERED_SEARCH_PATH);
         }
 
-        var handle = NativeMethods.LoadLibraryEx(fullPath, IntPtr.Zero, NativeMethods.LOAD_WITH_ALTERED_SEARCH_PATH);
         if (handle == IntPtr.Zero)
         {
             handle = NativeMethods.LoadLibraryEx(fullPath, IntPtr.Zero, 0);
@@ -127,10 +306,28 @@ internal class ActivationContextApi
 
         if (handle != IntPtr.Zero)
         {
-            LoadedModules.TryAdd(fullPath, handle);
+            NanoServerOle2Shim.OnModuleLoaded(handle);
         }
 
         return handle;
+    }
+
+    internal virtual bool FreeLibraryCore(IntPtr moduleHandle)
+        => NativeMethods.FreeLibrary(moduleHandle);
+
+    internal virtual void FreeUnusedLibrariesCore()
+        => NativeMethods.CoFreeUnusedLibrariesEx(0, 0);
+
+    internal virtual int QueryDllCanUnloadNow(IntPtr moduleHandle)
+    {
+        var proc = GetProcAddress(moduleHandle, "DllCanUnloadNow");
+        if (proc == IntPtr.Zero)
+        {
+            return NativeMethods.S_OK;
+        }
+
+        var callback = Marshal.GetDelegateForFunctionPointer<NativeMethods.DllCanUnloadNowDelegate>(proc);
+        return callback();
     }
 
     internal virtual IntPtr GetProcAddress(IntPtr moduleHandle, string procName)
@@ -153,16 +350,165 @@ internal class ActivationContextApi
     internal virtual int InitializeMultithreadedApartment()
         => NativeMethods.CoInitializeEx(IntPtr.Zero, NativeMethods.COINIT_MULTITHREADED);
 
+    internal virtual int InitializeSingleThreadedApartment()
+        => NativeMethods.CoInitializeEx(IntPtr.Zero, NativeMethods.COINIT_APARTMENTTHREADED);
+
+    internal virtual int InitializeApartment(uint dwCoInit)
+        => dwCoInit == NativeMethods.COINIT_APARTMENTTHREADED
+            ? InitializeSingleThreadedApartment()
+            : InitializeMultithreadedApartment();
+
+    internal virtual void UninitializeApartment()
+        => NativeMethods.CoUninitialize();
+
+    internal virtual int LoadTypeLibrary(string typeLibPath, out IntPtr typeLib)
+        => NativeMethods.LoadTypeLibEx(typeLibPath, NativeMethods.REGKIND_NONE, out typeLib);
+
+    internal virtual void ReleaseTypeLibrary(IntPtr typeLib)
+        => Marshal.Release(typeLib);
+
     internal virtual int RevokeClassObject(uint registrationToken)
         => NativeMethods.CoRevokeClassObject(registrationToken);
 
     internal virtual void ReleaseClassObject(IntPtr classFactory)
         => Marshal.Release(classFactory);
 
+    internal ModuleLease? AcquireModuleLease(string dllPath, bool unloadOnDeactivate)
+    {
+        var context = new PendingLeaseContext(unloadOnDeactivate);
+        var previous = SwapPendingLeaseContext(context);
+        try
+        {
+            var handle = LoadLibrary(dllPath);
+            if (handle == IntPtr.Zero)
+            {
+                context.AcquiredLease?.TryMarkReleased();
+                return null;
+            }
+
+            if (context.AcquiredLease is not null)
+            {
+                return context.AcquiredLease;
+            }
+
+            // Custom LoadLibrary override returned a handle without invoking base.LoadLibrary.
+            return new ModuleLease(new LoadedModuleEntry(Path.GetFullPath(dllPath), handle) { RetainPermanently = true }, unloadOnDeactivate: false);
+        }
+        finally
+        {
+            _ = SwapPendingLeaseContext(previous);
+        }
+    }
+
+    internal void ReleaseModuleLeases(List<ModuleLease> leases, bool forceFreeUnusedLibraries = false)
+    {
+        var anyUnloadRequested = forceFreeUnusedLibraries || leases.Exists(static lease => lease.UnloadOnDeactivate);
+
+        if (anyUnloadRequested)
+        {
+            FreeUnusedLibrariesCore();
+        }
+
+        var unmappedAny = false;
+        lock (ModuleLock)
+        {
+            for (var i = leases.Count - 1; i >= 0; i--)
+            {
+                var lease = leases[i];
+                if (!lease.TryMarkReleased())
+                {
+                    continue;
+                }
+
+                var entry = lease.Entry;
+                if (entry.ActiveLeaseCount > 0)
+                {
+                    entry.ActiveLeaseCount--;
+                }
+
+                if (entry.ActiveLeaseCount != 0 || entry.RetainPermanently)
+                {
+                    continue;
+                }
+
+                var unmapped = TryUnloadModuleEntryUnderLock(entry, this);
+                if (!unmapped)
+                {
+                    entry.PendingDeferredUnload = true;
+                }
+
+                unmappedAny |= unmapped;
+            }
+        }
+
+        leases.Clear();
+        if (anyUnloadRequested && unmappedAny)
+        {
+            FreeUnusedLibrariesCore();
+        }
+    }
+
+    internal IReadOnlyList<IntPtr> GetFallbackLoadedHandles(IntPtr cookie)
+    {
+        if (!_fallbackActivations.TryGetValue(cookie, out var activation))
+        {
+            return [];
+        }
+
+        var handles = new List<IntPtr>(activation.ModuleLeases.Count);
+        var seen = new HashSet<IntPtr>();
+        for (var i = 0; i < activation.ModuleLeases.Count; i++)
+        {
+            var h = activation.ModuleLeases[i].Handle;
+            if (h != IntPtr.Zero && seen.Add(h))
+            {
+                handles.Add(h);
+            }
+        }
+
+        return handles;
+    }
+
     internal int ConsumeLastError()
     {
         var threadId = NativeMethods.GetCurrentThreadId();
         return _lastFallbackErrors.TryRemove(threadId, out var error) ? error : 0;
+    }
+
+    private static PendingLeaseContext? SwapPendingLeaseContext(PendingLeaseContext? next)
+    {
+        var previous = _pendingLeaseContext;
+        _pendingLeaseContext = next;
+        return previous;
+    }
+
+    private static PendingCreateContext? SwapPendingCreateContext(PendingCreateContext? next)
+    {
+        var previous = _pendingCreateContext;
+        _pendingCreateContext = next;
+        return previous;
+    }
+
+    private static bool TryUnloadModuleEntryUnderLock(LoadedModuleEntry entry, ActivationContextApi api)
+    {
+        if (entry.Handle == IntPtr.Zero || entry.RetainPermanently || entry.ActiveLeaseCount > 0)
+        {
+            return false;
+        }
+
+        var canUnloadHr = api.QueryDllCanUnloadNow(entry.Handle);
+        if (canUnloadHr != NativeMethods.S_OK)
+        {
+            return false;
+        }
+
+        LoadedModules.Remove(entry.FullPath);
+        entry.PendingDeferredUnload = false;
+        var handle = entry.Handle;
+        entry.Handle = IntPtr.Zero;
+        _ = api.FreeLibraryCore(handle);
+        NanoServerOle2Shim.OnModuleUnloaded(handle);
+        return true;
     }
 
     private static bool IsFallbackTriggerError(int errorCode)
@@ -176,321 +522,47 @@ internal class ActivationContextApi
     private static int NormalizeWin32Error(int errorCode, int defaultError)
         => errorCode != 0 ? errorCode : defaultError;
 
-#pragma warning disable SCS0018, SEC0116 // Manifest and assembly paths are caller-supplied configuration by design.
-    private static bool TryParseManifest(
-        string manifestPath,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        out List<ComClassRegistration> registrations,
-        out int errorCode)
+    private static uint SelectDesiredApartment(ComManifestParser.ComThreadingModel threadingModel)
     {
-        registrations = [];
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
+        if (threadingModel is ComManifestParser.ComThreadingModel.Apartment
+            or ComManifestParser.ComThreadingModel.Single)
         {
-            return ParseManifestCore(
-                Path.GetFullPath(manifestPath),
-                assemblyDirectory,
-                defaultAssemblyPath,
-                visited,
-                registrations,
-                out errorCode);
+            return NativeMethods.COINIT_APARTMENTTHREADED;
         }
-        catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException or ArgumentException)
-        {
-            errorCode = ex is FileNotFoundException or DirectoryNotFoundException
-                ? NativeMethods.ERROR_FILE_NOT_FOUND
-                : NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
+
+        return Thread.CurrentThread.GetApartmentState() == ApartmentState.STA
+            ? NativeMethods.COINIT_APARTMENTTHREADED
+            : NativeMethods.COINIT_MULTITHREADED;
     }
 
-    private static bool ParseManifestCore(
-        string manifestPath,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        HashSet<string> visitedManifests,
-        List<ComClassRegistration> registrations,
-        out int errorCode)
+    private static ApartmentRegistrationKey ResolveApartmentRegistrationKey(
+        ComManifestParser.ComThreadingModel threadingModel,
+        uint currentThreadId,
+        out bool currentThreadNeedsComInit)
     {
-        errorCode = 0;
-        if (!visitedManifests.Add(manifestPath))
+        if (NativeMethods.CoGetApartmentType(out var aptType, out var aptQualifier) >= 0)
         {
-            return true;
+            if (aptType is NativeMethods.APTTYPE_STA or NativeMethods.APTTYPE_MAINSTA
+                || (aptType == NativeMethods.APTTYPE_NA
+                    && aptQualifier is NativeMethods.APTTYPEQUALIFIER_NA_ON_STA or NativeMethods.APTTYPEQUALIFIER_NA_ON_MAINSTA))
+            {
+                currentThreadNeedsComInit = false;
+                return new ApartmentRegistrationKey(isMta: false, currentThreadId, Guid.Empty);
+            }
+
+            if ((aptType == NativeMethods.APTTYPE_MTA && aptQualifier != NativeMethods.APTTYPEQUALIFIER_IMPLICIT_MTA)
+                || (aptType == NativeMethods.APTTYPE_NA && aptQualifier == NativeMethods.APTTYPEQUALIFIER_NA_ON_MTA))
+            {
+                currentThreadNeedsComInit = false;
+                return new ApartmentRegistrationKey(isMta: true, 0u, Guid.Empty);
+            }
         }
 
-        if (!File.Exists(manifestPath))
-        {
-            errorCode = NativeMethods.ERROR_FILE_NOT_FOUND;
-            return false;
-        }
-
-        var settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-        };
-
-        using var stream = File.OpenRead(manifestPath);
-        using var reader = XmlReader.Create(stream, settings);
-        return ReadManifestNodes(reader, manifestPath, assemblyDirectory, defaultAssemblyPath, visitedManifests, registrations, out errorCode);
+        currentThreadNeedsComInit = true;
+        var desiredCoInit = SelectDesiredApartment(threadingModel);
+        var isMta = desiredCoInit != NativeMethods.COINIT_APARTMENTTHREADED;
+        return new ApartmentRegistrationKey(isMta, isMta ? 0u : currentThreadId, Guid.Empty);
     }
-
-    private static bool ReadManifestNodes(
-        XmlReader reader,
-        string manifestPath,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        HashSet<string> visitedManifests,
-        List<ComClassRegistration> registrations,
-        out int errorCode)
-    {
-        errorCode = 0;
-        var hasAssemblyRoot = false;
-        string? currentFileName = null;
-        var fileDepth = -1;
-        var dependentDepth = -1;
-
-        while (reader.Read())
-        {
-            if (reader.NodeType == XmlNodeType.EndElement)
-            {
-                ResetScopeOnEndElement(reader, ref currentFileName, ref fileDepth, ref dependentDepth);
-                continue;
-            }
-
-            if (reader.NodeType != XmlNodeType.Element)
-            {
-                continue;
-            }
-
-            if (!hasAssemblyRoot)
-            {
-                if (!string.Equals(reader.LocalName, "assembly", StringComparison.Ordinal))
-                {
-                    errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-                    return false;
-                }
-
-                hasAssemblyRoot = true;
-                continue;
-            }
-
-            if (!ProcessElement(
-                reader,
-                manifestPath,
-                assemblyDirectory,
-                defaultAssemblyPath,
-                ref currentFileName,
-                ref fileDepth,
-                ref dependentDepth,
-                visitedManifests,
-                registrations,
-                out errorCode))
-            {
-                return false;
-            }
-        }
-
-        if (!hasAssemblyRoot)
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        return true;
-    }
-
-    private static void ResetScopeOnEndElement(
-        XmlReader reader,
-        ref string? currentFileName,
-        ref int fileDepth,
-        ref int dependentDepth)
-    {
-        if (reader.Depth == fileDepth && string.Equals(reader.LocalName, "file", StringComparison.Ordinal))
-        {
-            currentFileName = null;
-            fileDepth = -1;
-        }
-        else if (reader.Depth == dependentDepth && string.Equals(reader.LocalName, "dependentAssembly", StringComparison.Ordinal))
-        {
-            dependentDepth = -1;
-        }
-    }
-
-#pragma warning disable S107 // Methods should not have too many parameters
-    private static bool ProcessElement(
-        XmlReader reader,
-        string manifestPath,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        ref string? currentFileName,
-        ref int fileDepth,
-        ref int dependentDepth,
-        HashSet<string> visitedManifests,
-        List<ComClassRegistration> registrations,
-        out int errorCode)
-#pragma warning restore S107
-    {
-        errorCode = 0;
-        if (string.Equals(reader.LocalName, "file", StringComparison.Ordinal))
-        {
-            var name = reader.GetAttribute("name");
-            if (!reader.IsEmptyElement)
-            {
-                currentFileName = name;
-                fileDepth = reader.Depth;
-            }
-
-            return true;
-        }
-
-        if (string.Equals(reader.LocalName, "dependentAssembly", StringComparison.Ordinal))
-        {
-            if (!reader.IsEmptyElement)
-            {
-                dependentDepth = reader.Depth;
-            }
-
-            return true;
-        }
-
-        if (string.Equals(reader.LocalName, "comClass", StringComparison.Ordinal))
-        {
-            return TryAddComClassRegistration(reader, currentFileName, assemblyDirectory, defaultAssemblyPath, registrations, out errorCode);
-        }
-
-        if (dependentDepth >= 0 && string.Equals(reader.LocalName, "assemblyIdentity", StringComparison.Ordinal))
-        {
-            return TryParseDependentAssembly(reader, manifestPath, assemblyDirectory, defaultAssemblyPath, visitedManifests, registrations, out errorCode);
-        }
-
-        return true;
-    }
-
-    private static bool TryAddComClassRegistration(
-        XmlReader reader,
-        string? currentFileName,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        List<ComClassRegistration> registrations,
-        out int errorCode)
-    {
-        var clsidAttribute = reader.GetAttribute("clsid");
-        if (string.IsNullOrWhiteSpace(clsidAttribute) || !Guid.TryParse(clsidAttribute, out var clsid))
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        var dllPath = ResolveComDllPath(currentFileName, assemblyDirectory, defaultAssemblyPath);
-        if (dllPath is null || string.IsNullOrWhiteSpace(dllPath))
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        registrations.Add(new ComClassRegistration(dllPath, clsid));
-        errorCode = 0;
-        return true;
-    }
-
-    private static string? ResolveComDllPath(
-        string? currentFileName,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath)
-    {
-        if (currentFileName is not null && !string.IsNullOrWhiteSpace(currentFileName))
-        {
-            string? candidate = null;
-            if (Path.IsPathRooted(currentFileName))
-            {
-                candidate = Path.GetFullPath(currentFileName);
-            }
-            else if (assemblyDirectory is not null && !string.IsNullOrWhiteSpace(assemblyDirectory))
-            {
-                candidate = Path.GetFullPath(Path.Combine(assemblyDirectory, currentFileName));
-            }
-
-            if (candidate is not null
-                && !string.IsNullOrWhiteSpace(candidate)
-                && (File.Exists(candidate) || string.IsNullOrWhiteSpace(defaultAssemblyPath)))
-            {
-                return candidate;
-            }
-        }
-
-        return defaultAssemblyPath is null || string.IsNullOrWhiteSpace(defaultAssemblyPath)
-            ? null
-            : Path.GetFullPath(defaultAssemblyPath);
-    }
-
-    private static bool TryParseDependentAssembly(
-        XmlReader reader,
-        string currentManifestPath,
-        string? assemblyDirectory,
-        string? defaultAssemblyPath,
-        HashSet<string> visitedManifests,
-        List<ComClassRegistration> registrations,
-        out int errorCode)
-    {
-        var dependencyName = reader.GetAttribute("name");
-        if (dependencyName is null || string.IsNullOrWhiteSpace(dependencyName))
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        var dependentManifestPath = ResolveDependentManifestPath(dependencyName, currentManifestPath, assemblyDirectory);
-        if (dependentManifestPath is null)
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        return ParseManifestCore(
-            dependentManifestPath,
-            assemblyDirectory,
-            defaultAssemblyPath,
-            visitedManifests,
-            registrations,
-            out errorCode);
-    }
-
-    private static string? ResolveDependentManifestPath(
-        string assemblyName,
-        string currentManifestPath,
-        string? assemblyDirectory)
-    {
-        var manifestFileName = assemblyName + ".manifest";
-        if (assemblyDirectory is not null && !string.IsNullOrWhiteSpace(assemblyDirectory))
-        {
-            var directCandidate = Path.GetFullPath(Path.Combine(assemblyDirectory, manifestFileName));
-            if (File.Exists(directCandidate))
-            {
-                return directCandidate;
-            }
-
-            var subFolderCandidate = Path.GetFullPath(Path.Combine(assemblyDirectory, assemblyName, manifestFileName));
-            if (File.Exists(subFolderCandidate))
-            {
-                return subFolderCandidate;
-            }
-        }
-
-        var manifestDirectory = Path.GetDirectoryName(currentManifestPath);
-        if (manifestDirectory is not null && !string.IsNullOrWhiteSpace(manifestDirectory))
-        {
-            var siblingCandidate = Path.GetFullPath(Path.Combine(manifestDirectory, manifestFileName));
-            if (File.Exists(siblingCandidate))
-            {
-                return siblingCandidate;
-            }
-        }
-
-        return null;
-    }
-#pragma warning restore SCS0018, SEC0116
 
     private void SetLastFallbackError(int errorCode)
     {
@@ -498,88 +570,290 @@ internal class ActivationContextApi
         _lastFallbackErrors[threadId] = errorCode;
     }
 
-    private IntPtr CreateFallbackContext(ref ActCtx context, string? defaultAssemblyPath, out int errorCode)
+    private IntPtr CreateFallbackContext(
+        ComManifestParser.ParsedManifest parsedManifest,
+        ComActivationOptions options,
+        out int errorCode)
     {
-        if (string.IsNullOrWhiteSpace(context.lpSource) || !File.Exists(context.lpSource))
-        {
-            errorCode = NativeMethods.ERROR_FILE_NOT_FOUND;
-            return (IntPtr)(-1);
-        }
-
-        if (!TryParseManifest(context.lpSource, context.lpAssemblyDirectory, defaultAssemblyPath, out var registrations, out errorCode))
-        {
-            return (IntPtr)(-1);
-        }
-
         var handle = AllocateFallbackToken();
-        _fallbackContexts[handle] = new FallbackContext(registrations);
+        _fallbackContexts[handle] = new FallbackContext(parsedManifest, options.Clone());
         errorCode = 0;
         return handle;
     }
 
     private bool ActivateFallbackContext(IntPtr handle, FallbackContext fallbackContext, out IntPtr cookie)
     {
-        var activeRegistrations = new List<ActiveClassRegistration>(fallbackContext.Registrations.Count);
-        foreach (var registration in fallbackContext.Registrations)
-        {
-            var activeRegistration = TryRegisterSingleClass(registration);
-            if (activeRegistration is null)
-            {
-                UnwindActiveRegistrations(activeRegistrations);
-                cookie = IntPtr.Zero;
-                return false;
-            }
+        var options = fallbackContext.Options;
+        var manifest = fallbackContext.Manifest;
+        var activeRegistrations = new List<SharedClassRegistrationLease>(manifest.Classes.Count);
+        var moduleLeases = new List<ModuleLease>(manifest.ReferencedDllPaths.Count);
+        var loadedTypeLibs = new List<IntPtr>(manifest.TypeLibs.Count);
+        var acquiredComInitCount = 0;
 
-            activeRegistrations.Add(activeRegistration);
+        if (!AcquireManifestModuleLeases(manifest, options.UnloadModulesOnDeactivate, moduleLeases, out var moduleMap))
+        {
+            ReleaseModuleLeases(moduleLeases);
+            cookie = IntPtr.Zero;
+            return false;
         }
 
-        cookie = AllocateFallbackToken();
-        var activation = new FallbackActivation(cookie, handle, activeRegistrations);
-        _fallbackActivations[cookie] = activation;
+        if (!TryRegisterAllManifestClasses(manifest, moduleMap, options.IgnoreUnavailableProxyStubClasses, activeRegistrations, ref acquiredComInitCount)
+            || (options.LoadTypeLibsOnFallback && !TryLoadManifestTypeLibs(manifest, loadedTypeLibs))
+            || !TryAcquireOptionalFallbackRegistryLease(manifest, options, out var registryLease))
+        {
+            UnwindFallbackSetup(activeRegistrations, loadedTypeLibs, registryLease: null, moduleLeases, ref acquiredComInitCount);
+            cookie = IntPtr.Zero;
+            return false;
+        }
+
         var threadId = NativeMethods.GetCurrentThreadId();
+        cookie = AllocateFallbackToken();
+        var activation = new FallbackActivation(
+            cookie,
+            handle,
+            threadId,
+            activeRegistrations,
+            moduleLeases,
+            loadedTypeLibs,
+            registryLease,
+            acquiredComInitCount);
+        _fallbackActivations[cookie] = activation;
         var stack = _threadFallbackStacks.GetOrAdd(threadId, _ => []);
         stack.Add(activation);
         return true;
     }
 
-    private ActiveClassRegistration? TryRegisterSingleClass(ComClassRegistration registration)
+    private bool TryRegisterAllManifestClasses(
+        ComManifestParser.ParsedManifest manifest,
+        Dictionary<string, IntPtr> moduleMap,
+        bool ignoreUnavailableProxyStub,
+        List<SharedClassRegistrationLease> activeRegistrations,
+        ref int acquiredComInitCount)
     {
-        var moduleHandle = LoadLibrary(registration.DllPath);
-        if (moduleHandle == IntPtr.Zero)
+        var currentThreadId = NativeMethods.GetCurrentThreadId();
+        for (var i = 0; i < manifest.Classes.Count; i++)
         {
-            SetLastFallbackError(NormalizeWin32Error(GetLastWin32Error(), NativeMethods.ERROR_MOD_NOT_FOUND));
-            return null;
+            var registration = manifest.Classes[i];
+            if (!TryRegisterSingleClass(
+                registration,
+                moduleMap[registration.DllPath],
+                currentThreadId,
+                ignoreUnavailableProxyStub,
+                ref acquiredComInitCount,
+                out var activeRegistration))
+            {
+                return false;
+            }
+
+            if (activeRegistration is not null)
+            {
+                activeRegistrations.Add(activeRegistration);
+            }
         }
 
-        var procAddress = GetProcAddress(moduleHandle, "DllGetClassObject");
-        if (procAddress == IntPtr.Zero)
-        {
-            SetLastFallbackError(NormalizeWin32Error(GetLastWin32Error(), NativeMethods.ERROR_PROC_NOT_FOUND));
-            return null;
-        }
-
-        if (!AcquireClassFactory(procAddress, registration.Clsid, out var classFactory))
-        {
-            return null;
-        }
-
-        if (!RegisterFactoryWithRetry(registration.Clsid, classFactory, out var registrationToken))
-        {
-            ReleaseClassObject(classFactory);
-            return null;
-        }
-
-        return new ActiveClassRegistration(classFactory, registrationToken);
+        return true;
     }
 
-    private bool AcquireClassFactory(IntPtr procAddress, Guid clsid, out IntPtr classFactory)
+    private bool TryAcquireOptionalFallbackRegistryLease(
+        ComManifestParser.ParsedManifest manifest,
+        ComActivationOptions options,
+        out CurrentUserRegistryLeaseManager.RegistryScopeLease? registryLease)
     {
+        if (CurrentUserRegistryLeaseManager.TryAcquireFallbackRegistryLease(
+            manifest,
+            options.RegisterCurrentUserProgIdsOnFallback,
+            options.RegisterCurrentUserTypeLibsOnFallback,
+            options.SkipCurrentUserRegistrationWhenPresentInClassesRoot,
+            out registryLease))
+        {
+            return true;
+        }
+
+        SetLastFallbackError(NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX);
+        return false;
+    }
+
+    private bool AcquireManifestModuleLeases(
+        ComManifestParser.ParsedManifest manifest,
+        bool unloadOnDeactivate,
+        List<ModuleLease> moduleLeases,
+        out Dictionary<string, IntPtr> moduleMap)
+    {
+        moduleMap = new Dictionary<string, IntPtr>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < manifest.Classes.Count; i++)
+        {
+            var dllPath = manifest.Classes[i].DllPath;
+            if (moduleMap.ContainsKey(dllPath))
+            {
+                continue;
+            }
+
+            var lease = AcquireModuleLease(dllPath, unloadOnDeactivate);
+            if (lease is null || lease.Handle == IntPtr.Zero)
+            {
+                SetLastFallbackError(NormalizeWin32Error(GetLastWin32Error(), NativeMethods.ERROR_MOD_NOT_FOUND));
+                return false;
+            }
+
+            moduleLeases.Add(lease);
+            moduleMap[dllPath] = lease.Handle;
+        }
+
+        return true;
+    }
+
+    private bool TryLoadManifestTypeLibs(
+        ComManifestParser.ParsedManifest manifest,
+        List<IntPtr> loadedTypeLibs)
+    {
+        for (var i = 0; i < manifest.TypeLibs.Count; i++)
+        {
+            var tlb = manifest.TypeLibs[i];
+            var loadPath = string.IsNullOrEmpty(tlb.ResourceId)
+                ? tlb.DllPath
+                : tlb.DllPath + Path.DirectorySeparatorChar + tlb.ResourceId;
+            var hr = LoadTypeLibrary(loadPath, out var typeLib);
+            if (hr < 0 && !string.IsNullOrEmpty(tlb.ResourceId))
+            {
+                hr = LoadTypeLibrary(tlb.DllPath, out typeLib);
+            }
+
+            if (hr >= 0 && typeLib != IntPtr.Zero)
+            {
+                loadedTypeLibs.Add(typeLib);
+            }
+            else if (!File.Exists(tlb.DllPath))
+            {
+                SetLastFallbackError(NativeMethods.ERROR_FILE_NOT_FOUND);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryRegisterSingleClass(
+        ComManifestParser.ManifestComClassEntry registration,
+        IntPtr moduleHandle,
+        uint currentThreadId,
+        bool ignoreUnavailableProxyStub,
+        ref int acquiredComInitCount,
+        out SharedClassRegistrationLease? activeRegistration)
+    {
+        activeRegistration = null;
+        var normalizedDllPath = Path.GetFullPath(registration.DllPath);
+
+        lock (_registrationLock)
+        {
+            var baseApt = ResolveApartmentRegistrationKey(registration.ThreadingModel, currentThreadId, out var needsComInit);
+            var lookupKey = new ApartmentRegistrationKey(baseApt.IsMta, baseApt.StaThreadId, registration.Clsid);
+            if (_apartmentRegistrations.TryGetValue(lookupKey, out var existingLease))
+            {
+                return TryReuseExistingApartmentLeaseUnderLock(
+                    existingLease,
+                    normalizedDllPath,
+                    registration.ThreadingModel,
+                    needsComInit,
+                    ref acquiredComInitCount,
+                    out activeRegistration);
+            }
+
+            var procAddress = GetProcAddress(moduleHandle, "DllGetClassObject");
+            if (procAddress == IntPtr.Zero)
+            {
+                SetLastFallbackError(NormalizeWin32Error(GetLastWin32Error(), NativeMethods.ERROR_PROC_NOT_FOUND));
+                return false;
+            }
+
+            if (!AcquireClassFactory(
+                procAddress,
+                registration.Clsid,
+                registration.IsKnownProxyStub && ignoreUnavailableProxyStub,
+                out var classFactory,
+                out var skippedUnavailableProxyStub))
+            {
+                return false;
+            }
+
+            if (skippedUnavailableProxyStub)
+            {
+                return true;
+            }
+
+            if (!RegisterFactoryWithRetry(
+                registration.Clsid,
+                registration.ThreadingModel,
+                classFactory,
+                ref acquiredComInitCount,
+                out var registrationToken))
+            {
+                ReleaseClassObject(classFactory);
+                return false;
+            }
+
+            var finalApt = ResolveApartmentRegistrationKey(registration.ThreadingModel, currentThreadId, out _);
+            var finalKey = new ApartmentRegistrationKey(finalApt.IsMta, finalApt.StaThreadId, registration.Clsid);
+            var createdLease = new SharedClassRegistrationLease(finalKey, normalizedDllPath, classFactory, registrationToken);
+            _apartmentRegistrations[finalKey] = createdLease;
+            activeRegistration = createdLease;
+            return true;
+        }
+    }
+
+    private bool TryReuseExistingApartmentLeaseUnderLock(
+        SharedClassRegistrationLease existingLease,
+        string normalizedDllPath,
+        ComManifestParser.ComThreadingModel threadingModel,
+        bool needsComInit,
+        ref int acquiredComInitCount,
+        out SharedClassRegistrationLease? activeRegistration)
+    {
+        activeRegistration = null;
+        if (!string.Equals(existingLease.NormalizedDllPath, normalizedDllPath, StringComparison.OrdinalIgnoreCase))
+        {
+            SetLastFallbackError(NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX);
+            return false;
+        }
+
+        if (needsComInit)
+        {
+            var desiredCoInit = SelectDesiredApartment(threadingModel);
+            var initHr = InitializeApartment(desiredCoInit);
+            if (initHr < 0)
+            {
+                SetLastFallbackError(initHr);
+                return false;
+            }
+
+            acquiredComInitCount++;
+        }
+
+        existingLease.LeaseCount++;
+        activeRegistration = existingLease;
+        return true;
+    }
+
+    private bool AcquireClassFactory(
+        IntPtr procAddress,
+        Guid clsid,
+        bool allowSkipUnavailableProxyStub,
+        out IntPtr classFactory,
+        out bool skippedUnavailableProxyStub)
+    {
+        skippedUnavailableProxyStub = false;
         var iid = IidIClassFactory;
         var hr = GetClassObject(procAddress, ref clsid, ref iid, out classFactory);
         if (hr == NativeMethods.E_NOINTERFACE)
         {
             iid = IidIUnknown;
             hr = GetClassObject(procAddress, ref clsid, ref iid, out classFactory);
+        }
+
+        if (hr == NativeMethods.CLASS_E_CLASSNOTAVAILABLE && allowSkipUnavailableProxyStub)
+        {
+            classFactory = IntPtr.Zero;
+            skippedUnavailableProxyStub = true;
+            return true;
         }
 
         if (hr < 0 || classFactory == IntPtr.Zero)
@@ -592,16 +866,27 @@ internal class ActivationContextApi
         return true;
     }
 
-    private bool RegisterFactoryWithRetry(Guid clsid, IntPtr classFactory, out uint registrationToken)
+    private bool RegisterFactoryWithRetry(
+        Guid clsid,
+        ComManifestParser.ComThreadingModel threadingModel,
+        IntPtr classFactory,
+        ref int acquiredComInitCount,
+        out uint registrationToken)
     {
         var hr = RegisterClassObject(ref clsid, classFactory, out registrationToken);
         if (hr == NativeMethods.CO_E_NOTINITIALIZED)
         {
-            var initHr = InitializeMultithreadedApartment();
-            if (initHr >= 0)
+            var desiredCoInit = SelectDesiredApartment(threadingModel);
+            var initHr = InitializeApartment(desiredCoInit);
+            if (initHr < 0)
             {
-                hr = RegisterClassObject(ref clsid, classFactory, out registrationToken);
+                // Propagate RPC_E_CHANGED_MODE or other initialization failure without altering existing apartment state.
+                SetLastFallbackError(initHr);
+                return false;
             }
+
+            acquiredComInitCount++;
+            hr = RegisterClassObject(ref clsid, classFactory, out registrationToken);
         }
 
         if (hr < 0)
@@ -613,22 +898,55 @@ internal class ActivationContextApi
         return true;
     }
 
-    private void UnwindActiveRegistrations(List<ActiveClassRegistration> activeRegistrations)
+    private void UnwindFallbackSetup(
+        List<SharedClassRegistrationLease> activeRegistrations,
+        List<IntPtr> loadedTypeLibs,
+        CurrentUserRegistryLeaseManager.RegistryScopeLease? registryLease,
+        List<ModuleLease> moduleLeases,
+        ref int acquiredComInitCount)
     {
-        for (var i = activeRegistrations.Count - 1; i >= 0; i--)
+        registryLease?.Rollback();
+
+        for (var i = loadedTypeLibs.Count - 1; i >= 0; i--)
         {
-            var entry = activeRegistrations[i];
-            _ = RevokeClassObject(entry.RegistrationToken);
-            ReleaseClassObject(entry.ClassFactory);
+            ReleaseTypeLibrary(loadedTypeLibs[i]);
+        }
+
+        loadedTypeLibs.Clear();
+
+        lock (_registrationLock)
+        {
+            for (var i = activeRegistrations.Count - 1; i >= 0; i--)
+            {
+                var entry = activeRegistrations[i];
+                if (entry.LeaseCount > 1)
+                {
+                    entry.LeaseCount--;
+                    continue;
+                }
+
+                entry.LeaseCount = 0;
+                _apartmentRegistrations.Remove(entry.Key);
+                _ = RevokeClassObject(entry.RegistrationToken);
+                ReleaseClassObject(entry.ClassFactory);
+            }
         }
 
         activeRegistrations.Clear();
+        ReleaseModuleLeases(moduleLeases);
+
+        while (acquiredComInitCount > 0)
+        {
+            UninitializeApartment();
+            acquiredComInitCount--;
+        }
     }
 
     private bool DeactivateFallbackContext(FallbackActivation activation)
     {
         var threadId = NativeMethods.GetCurrentThreadId();
-        if (!_threadFallbackStacks.TryGetValue(threadId, out var stack)
+        if (threadId != activation.OwnerThreadId
+            || !_threadFallbackStacks.TryGetValue(threadId, out var stack)
             || stack.Count == 0
             || stack[stack.Count - 1].Cookie != activation.Cookie)
         {
@@ -636,18 +954,25 @@ internal class ActivationContextApi
             return false;
         }
 
-        for (var i = activation.ActiveRegistrations.Count - 1; i >= 0; i--)
+        if (!TryRevokeFallbackRegistrations(activation.ActiveRegistrations))
         {
-            var entry = activation.ActiveRegistrations[i];
-            var hr = RevokeClassObject(entry.RegistrationToken);
-            if (hr < 0)
-            {
-                SetLastFallbackError(hr);
-                return false;
-            }
+            return false;
+        }
 
-            ReleaseClassObject(entry.ClassFactory);
-            activation.ActiveRegistrations.RemoveAt(i);
+        activation.RegistryLease?.Rollback();
+
+        for (var i = activation.LoadedTypeLibs.Count - 1; i >= 0; i--)
+        {
+            ReleaseTypeLibrary(activation.LoadedTypeLibs[i]);
+            activation.LoadedTypeLibs.RemoveAt(i);
+        }
+
+        ReleaseModuleLeases(activation.ModuleLeases);
+
+        while (activation.AcquiredComInitCount > 0)
+        {
+            UninitializeApartment();
+            activation.AcquiredComInitCount--;
         }
 
         stack.RemoveAt(stack.Count - 1);
@@ -660,62 +985,221 @@ internal class ActivationContextApi
         return true;
     }
 
-    private sealed class ComClassRegistration
+    private bool TryRevokeFallbackRegistrations(List<SharedClassRegistrationLease> activeRegistrations)
     {
-        internal ComClassRegistration(string dllPath, Guid clsid)
+        lock (_registrationLock)
         {
-            DllPath = dllPath;
+            for (var i = activeRegistrations.Count - 1; i >= 0; i--)
+            {
+                var entry = activeRegistrations[i];
+                if (entry.LeaseCount > 1)
+                {
+                    entry.LeaseCount--;
+                    activeRegistrations.RemoveAt(i);
+                    continue;
+                }
+
+                var hr = RevokeClassObject(entry.RegistrationToken);
+                if (hr < 0)
+                {
+                    SetLastFallbackError(hr);
+                    return false;
+                }
+
+                entry.LeaseCount = 0;
+                _apartmentRegistrations.Remove(entry.Key);
+                ReleaseClassObject(entry.ClassFactory);
+                activeRegistrations.RemoveAt(i);
+            }
+        }
+
+        return true;
+    }
+
+    internal readonly struct ApartmentRegistrationKey : IEquatable<ApartmentRegistrationKey>
+    {
+        internal ApartmentRegistrationKey(bool isMta, uint staThreadId, Guid clsid)
+        {
+            IsMta = isMta;
+            StaThreadId = isMta ? 0u : staThreadId;
             Clsid = clsid;
         }
 
-        internal string DllPath { get; }
+        internal bool IsMta { get; }
+
+        internal uint StaThreadId { get; }
 
         internal Guid Clsid { get; }
+
+        public bool Equals(ApartmentRegistrationKey other)
+            => IsMta == other.IsMta && StaThreadId == other.StaThreadId && Clsid == other.Clsid;
+
+        public override bool Equals(object? obj)
+            => obj is ApartmentRegistrationKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = IsMta ? 1 : 0;
+                hash = (hash * 397) ^ (int)StaThreadId;
+                hash = (hash * 397) ^ Clsid.GetHashCode();
+                return hash;
+            }
+        }
     }
 
-    private sealed class ActiveClassRegistration
+    internal sealed class ModuleLease
     {
-        internal ActiveClassRegistration(IntPtr classFactory, uint registrationToken)
+        private int _released;
+
+        internal ModuleLease(LoadedModuleEntry entry, bool unloadOnDeactivate)
         {
+            Entry = entry;
+            UnloadOnDeactivate = unloadOnDeactivate;
+        }
+
+        internal LoadedModuleEntry Entry { get; }
+
+        internal IntPtr Handle => Entry.Handle;
+
+        internal bool UnloadOnDeactivate { get; }
+
+        internal bool TryMarkReleased()
+            => Interlocked.CompareExchange(ref _released, 1, 0) == 0;
+    }
+
+    internal sealed class LoadedModuleEntry
+    {
+        internal LoadedModuleEntry(string fullPath, IntPtr handle)
+        {
+            FullPath = fullPath;
+            Handle = handle;
+        }
+
+        internal string FullPath { get; }
+
+        internal IntPtr Handle { get; set; }
+
+        internal int ActiveLeaseCount { get; set; }
+
+        internal bool RetainPermanently { get; set; }
+
+        internal bool PendingDeferredUnload { get; set; }
+    }
+
+    private sealed class PendingLeaseContext
+    {
+        internal PendingLeaseContext(bool unloadOnDeactivate)
+        {
+            UnloadOnDeactivate = unloadOnDeactivate;
+        }
+
+        internal bool UnloadOnDeactivate { get; }
+
+        internal ModuleLease? AcquiredLease { get; set; }
+    }
+
+    private sealed class SharedClassRegistrationLease
+    {
+        internal SharedClassRegistrationLease(
+            ApartmentRegistrationKey key,
+            string normalizedDllPath,
+            IntPtr classFactory,
+            uint registrationToken)
+        {
+            Key = key;
+            NormalizedDllPath = normalizedDllPath;
             ClassFactory = classFactory;
             RegistrationToken = registrationToken;
+            LeaseCount = 1;
         }
+
+        internal ApartmentRegistrationKey Key { get; }
+
+        internal string NormalizedDllPath { get; }
 
         internal IntPtr ClassFactory { get; }
 
         internal uint RegistrationToken { get; }
+
+        internal int LeaseCount { get; set; }
     }
 
     private sealed class FallbackContext
     {
         private int _referenceCount = 1;
 
-        internal FallbackContext(List<ComClassRegistration> registrations)
+        internal FallbackContext(ComManifestParser.ParsedManifest manifest, ComActivationOptions options)
         {
-            Registrations = registrations;
+            Manifest = manifest;
+            Options = options;
         }
 
-        internal List<ComClassRegistration> Registrations { get; }
+        internal ComManifestParser.ParsedManifest Manifest { get; }
+
+        internal ComActivationOptions Options { get; }
 
         internal void AddReference() => Interlocked.Increment(ref _referenceCount);
 
         internal int ReleaseReference() => Interlocked.Decrement(ref _referenceCount);
     }
 
+    private sealed class PendingCreateContext
+    {
+        internal PendingCreateContext(ComActivationOptions options)
+        {
+            Options = options;
+        }
+
+        internal ComActivationOptions Options { get; }
+
+        internal ComManifestParser.ParsedManifest? ParsedManifest { get; private set; }
+
+        internal void SetParsedManifest(ComManifestParser.ParsedManifest? parsedManifest)
+            => ParsedManifest = parsedManifest;
+    }
+
+#pragma warning disable S107 // Internal activation record aggregates lifecycle state cleanly.
     private sealed class FallbackActivation
     {
-        internal FallbackActivation(IntPtr cookie, IntPtr contextHandle, List<ActiveClassRegistration> activeRegistrations)
+        internal FallbackActivation(
+            IntPtr cookie,
+            IntPtr contextHandle,
+            uint ownerThreadId,
+            List<SharedClassRegistrationLease> activeRegistrations,
+            List<ModuleLease> moduleLeases,
+            List<IntPtr> loadedTypeLibs,
+            CurrentUserRegistryLeaseManager.RegistryScopeLease? registryLease,
+            int acquiredComInitCount)
         {
             Cookie = cookie;
             ContextHandle = contextHandle;
+            OwnerThreadId = ownerThreadId;
             ActiveRegistrations = activeRegistrations;
+            ModuleLeases = moduleLeases;
+            LoadedTypeLibs = loadedTypeLibs;
+            RegistryLease = registryLease;
+            AcquiredComInitCount = acquiredComInitCount;
         }
 
         internal IntPtr Cookie { get; }
 
         internal IntPtr ContextHandle { get; }
 
-        internal List<ActiveClassRegistration> ActiveRegistrations { get; }
+        internal uint OwnerThreadId { get; }
+
+        internal List<SharedClassRegistrationLease> ActiveRegistrations { get; }
+
+        internal List<ModuleLease> ModuleLeases { get; }
+
+        internal List<IntPtr> LoadedTypeLibs { get; }
+
+        internal CurrentUserRegistryLeaseManager.RegistryScopeLease? RegistryLease { get; }
+
+        internal int AcquiredComInitCount { get; set; }
     }
+#pragma warning restore S107
 }
-#pragma warning restore SA1121 // Use built-in type alias
+#pragma warning restore SA1121
+#pragma warning restore MA0158
