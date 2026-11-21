@@ -110,9 +110,7 @@ public static class ComModuleDiagnostics
             normalizedActualPath,
             effectiveExpectedHandle,
             normalizedExpectedPath,
-            vtablePtr,
-            methodPtr,
-            methodSlotIndex,
+            (vtablePtr, methodPtr, methodSlotIndex),
             effectiveIid);
     }
 
@@ -224,9 +222,7 @@ public static class ComModuleDiagnostics
             normalizedActualPath,
             effectiveExpectedHandle,
             normalizedExpectedPath,
-            vtablePtr,
-            methodPtr,
-            methodSlotIndex,
+            (vtablePtr, methodPtr, methodSlotIndex),
             effectiveIid);
     }
 
@@ -329,17 +325,13 @@ public static class ComModuleDiagnostics
         return expectedModuleHandle;
     }
 
-#pragma warning disable S107
     private static ComModuleInspectionResult CreateInspectionResult(
         IntPtr actualModule,
         string? normalizedActualPath,
         IntPtr effectiveExpectedHandle,
         string? normalizedExpectedPath,
-        IntPtr vtablePtr,
-        IntPtr methodPtr,
-        int methodSlotIndex,
+        (IntPtr Vtable, IntPtr Method, int Index) slot,
         Guid effectiveIid)
-#pragma warning restore S107
     {
         if (IsExpectedModuleMatch(actualModule, normalizedActualPath, effectiveExpectedHandle, normalizedExpectedPath))
         {
@@ -347,15 +339,13 @@ public static class ComModuleDiagnostics
                 ComModuleVerificationStatus.Match,
                 actualModule,
                 normalizedActualPath,
-                vtablePtr,
-                methodPtr,
-                methodSlotIndex,
+                slot,
                 effectiveIid,
                 string.Format(
                     CultureInfo.InvariantCulture,
                     "COM interface {0:B} slot {1} matched expected module 0x{2:X} ({3}).",
                     effectiveIid,
-                    methodSlotIndex,
+                    slot.Index,
                     actualModule.ToInt64(),
                     normalizedActualPath ?? "<unknown>"));
         }
@@ -366,15 +356,13 @@ public static class ComModuleDiagnostics
                 ComModuleVerificationStatus.Inconclusive,
                 actualModule,
                 normalizedActualPath,
-                vtablePtr,
-                methodPtr,
-                methodSlotIndex,
+                slot,
                 effectiveIid,
                 string.Format(
                     CultureInfo.InvariantCulture,
                     "COM interface {0:B} slot {1} resolved to 0x{2:X} ({3}), which is a shared runtime, proxy/stub, tear-off, or dynamic thunk rather than direct proof of vendor DLL isolation (expected 0x{4:X} {5}). Inspect a direct native interface or custom method slot.",
                     effectiveIid,
-                    methodSlotIndex,
+                    slot.Index,
                     actualModule.ToInt64(),
                     normalizedActualPath ?? "<unmapped thunk>",
                     effectiveExpectedHandle.ToInt64(),
@@ -385,15 +373,13 @@ public static class ComModuleDiagnostics
             ComModuleVerificationStatus.Mismatch,
             actualModule,
             normalizedActualPath,
-            vtablePtr,
-            methodPtr,
-            methodSlotIndex,
+            slot,
             effectiveIid,
             string.Format(
                 CultureInfo.InvariantCulture,
                 "COM module isolation mismatch on interface {0:B} slot {1}: expected HMODULE 0x{2:X} ({3}), but instance vtable belongs to HMODULE 0x{4:X} ({5}).",
                 effectiveIid,
-                methodSlotIndex,
+                slot.Index,
                 effectiveExpectedHandle.ToInt64(),
                 normalizedExpectedPath ?? "<unspecified>",
                 actualModule.ToInt64(),

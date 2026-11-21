@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 #if NET8_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -244,7 +245,7 @@ internal sealed class ComActivationScope : IComActivationScope
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(moduleIndex),
-                    "Module index must be less than LoadedModuleHandles.Count (" + handles.Count + ").");
+                    "Module index must be less than LoadedModuleHandles.Count (" + handles.Count.ToString(CultureInfo.InvariantCulture) + ").");
             }
 
             moduleHandle = handles[moduleIndex];

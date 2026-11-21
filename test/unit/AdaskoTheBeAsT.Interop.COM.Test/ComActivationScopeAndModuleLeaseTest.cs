@@ -1,4 +1,5 @@
 using System.Diagnostics.Tracing;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using AwesomeAssertions;
 using Xunit;
@@ -43,7 +44,7 @@ public class ComActivationScopeAndModuleLeaseTest
                 using var scope = activation.Value!;
                 scope.IsReleased.Should().BeFalse();
                 scope.IsUsingNanoServerFallback.Should().Be(useNanoFallback);
-                scope.LoadedModuleHandles.Should().HaveCount(1);
+                scope.LoadedModuleHandles.Should().ContainSingle();
 
                 ExerciseCrossOrderCoclasses(scope);
 
@@ -82,7 +83,7 @@ public class ComActivationScopeAndModuleLeaseTest
         beta1.GetBetaTag(out var tag1).Should().Be(0);
         tag1.Should().Be(0xBE7A);
         beta1.CombineWithAlpha(alpha1, 4, out var combined1).Should().Be(0);
-        combined1.Should().Be(48); // (4 * 10 + 1) + 7
+        combined1.Should().Be(48);
 
         // Order 2: Beta -> Alpha inside the same scope
         var beta2 = (ProbeNativeInterop.IProbeBeta)ProbeNativeInterop.CreateComInstance(ProbeNativeInterop.BetaClsid);
@@ -91,7 +92,7 @@ public class ComActivationScopeAndModuleLeaseTest
         scope.TrackObject(alpha2);
 
         beta2.CombineWithAlpha(alpha2, 5, out var combined2).Should().Be(0);
-        combined2.Should().Be(59); // (5 * 10 + 2) + 7
+        combined2.Should().Be(59);
     }
 
     [Fact]
@@ -108,7 +109,7 @@ public class ComActivationScopeAndModuleLeaseTest
 
             for (var cycle = 1; cycle <= 3; cycle++)
             {
-                var (workerDir, dllPath, manifestPath) = ProbeNativeInterop.CreateIsolatedProbeWorker($"recycle_{cycle}");
+                var (workerDir, dllPath, manifestPath) = ProbeNativeInterop.CreateIsolatedProbeWorker("recycle_" + cycle.ToString(CultureInfo.InvariantCulture));
                 var activation = Executor.Activate(
                     [new ComPathDescriptor(dllPath, manifestPath)],
                     options,

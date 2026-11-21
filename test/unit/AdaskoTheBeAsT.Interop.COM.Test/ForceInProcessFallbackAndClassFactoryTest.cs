@@ -124,7 +124,7 @@ public class ForceInProcessFallbackAndClassFactoryTest
                 spyApi.RevokeCallCount.Should().Be(initialRegisterCount);
                 NativeMethods.GetModuleHandleW(dll1Path).Should().Be(IntPtr.Zero);
 
-                var iidUnknown = new Guid("00000000-0000-0000-C000-000000000046");
+                var iidUnknown = ProbeNativeInterop.IUnknownIid;
                 var alphaClsid = ProbeNativeInterop.AlphaClsid;
                 var postDeactivateHr = NativeMethods.CoCreateInstance(
                     ref alphaClsid,
@@ -150,6 +150,7 @@ public class ForceInProcessFallbackAndClassFactoryTest
     [Fact]
     public void TwoParallelStaWorkersWithForceInProcessFallbackShouldIsolateSameClsidToDistinctModulesSimultaneously()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var (workerADir, dllAPath, manifestAPath) = ProbeNativeInterop.CreateIsolatedProbeWorker("par_fb_a");
         var (workerBDir, dllBPath, manifestBPath) = ProbeNativeInterop.CreateIsolatedProbeWorker("par_fb_b");
         try
@@ -160,13 +161,13 @@ public class ForceInProcessFallbackAndClassFactoryTest
             ExceptionDispatchInfo? failureA = null;
             ExceptionDispatchInfo? failureB = null;
 
-            var threadA = new Thread(() => RunParallelStaFallbackWorker(dllAPath, manifestAPath, barrier, out baseA, out failureA))
+            var threadA = new Thread(() => RunParallelStaFallbackWorker(dllAPath, manifestAPath, barrier, cancellationToken, out baseA, out failureA))
             {
                 IsBackground = true,
             };
             threadA.SetApartmentState(ApartmentState.STA);
 
-            var threadB = new Thread(() => RunParallelStaFallbackWorker(dllBPath, manifestBPath, barrier, out baseB, out failureB))
+            var threadB = new Thread(() => RunParallelStaFallbackWorker(dllBPath, manifestBPath, barrier, cancellationToken, out baseB, out failureB))
             {
                 IsBackground = true,
             };
@@ -195,12 +196,13 @@ public class ForceInProcessFallbackAndClassFactoryTest
     [Fact]
     public void ConcurrentMtaFallbackScopesForSameDllShouldRefCountUntilLastScopeDeactivates()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var (workerDir, dllPath, manifestPath) = ProbeNativeInterop.CreateIsolatedProbeWorker("mta_refcnt", threadingModel: "Both");
         try
         {
             using var bothActiveBarrier = new Barrier(2);
-            using var firstDeactivatedEvent = new ManualResetEventSlim(false);
-            using var secondVerifiedEvent = new ManualResetEventSlim(false);
+            using var firstDeactivatedEvent = new ManualResetEventSlim(initialState: false);
+            using var secondVerifiedEvent = new ManualResetEventSlim(initialState: false);
             var spyApi = new DesktopSpyActivationContextApi();
             ExceptionDispatchInfo? mta1Failure = null;
             ExceptionDispatchInfo? mta2Failure = null;
@@ -219,11 +221,11 @@ public class ForceInProcessFallbackAndClassFactoryTest
                     var act = Executor.Activate([new ComPathDescriptor(dllPath, manifestPath)], options, spyApi);
                     act.Success.Should().BeTrue();
                     var scope = act.Value!;
-                    bothActiveBarrier.SignalAndWait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+                    bothActiveBarrier.SignalAndWait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
 
                     Executor.Deactivate(scope).Success.Should().BeTrue();
                     firstDeactivatedEvent.Set();
-                    secondVerifiedEvent.Wait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+                    secondVerifiedEvent.Wait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
                 }
                 catch (Exception ex)
                 {
@@ -243,9 +245,9 @@ public class ForceInProcessFallbackAndClassFactoryTest
                     var act = Executor.Activate([new ComPathDescriptor(dllPath, manifestPath)], options, spyApi);
                     act.Success.Should().BeTrue();
                     var scope = act.Value!;
-                    bothActiveBarrier.SignalAndWait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+                    bothActiveBarrier.SignalAndWait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
 
-                    firstDeactivatedEvent.Wait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+                    firstDeactivatedEvent.Wait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
                     spyApi.RevokeCallCount.Should().Be(0);
 
                     // Even after MTA thread 1 deactivated, MTA thread 2's shared registration lease remains active!
@@ -464,6 +466,7 @@ public class ForceInProcessFallbackAndClassFactoryTest
         string dllPath,
         string manifestPath,
         Barrier barrier,
+        CancellationToken cancellationToken,
         out IntPtr observedModuleBase,
         out ExceptionDispatchInfo? failure)
     {
@@ -485,9 +488,9 @@ public class ForceInProcessFallbackAndClassFactoryTest
             }
 
             var scope = act.Value!;
-            barrier.SignalAndWait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+            barrier.SignalAndWait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
             observedModuleBase = CaptureScopeModuleBaseAndVerify(scope, dllPath);
-            barrier.SignalAndWait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+            barrier.SignalAndWait(TimeSpan.FromSeconds(15), cancellationToken).Should().BeTrue();
 
             var deact = Executor.Deactivate(scope);
             deact.Success.Should().BeTrue();

@@ -214,7 +214,7 @@ public class ComManifestValidationAndFallbackOptionsTest
                 const string priorValue = "{11111111-2222-3333-4444-555555555555}";
                 using (var preKey = Registry.CurrentUser.CreateSubKey(clsidSubKeyPath))
                 {
-                    preKey!.SetValue(null, priorValue, RegistryValueKind.String);
+                    preKey!.SetValue(name: null, priorValue, RegistryValueKind.String);
                 }
 
                 var restoreScopeRes = Executor.Activate([new ComPathDescriptor(dllPath, manifestPath)], optInOptions, api);
@@ -224,7 +224,7 @@ public class ComManifestValidationAndFallbackOptionsTest
                 using (var restoredKey = Registry.CurrentUser.OpenSubKey(clsidSubKeyPath))
                 {
                     restoredKey.Should().NotBeNull();
-                    restoredKey!.GetValue(null).Should().Be(priorValue);
+                    restoredKey!.GetValue(name: null).Should().Be(priorValue);
                 }
 
                 // 4. External modification while scope is active must NOT be clobbered on rollback!
@@ -233,13 +233,13 @@ public class ComManifestValidationAndFallbackOptionsTest
                 externalScopeRes.Success.Should().BeTrue();
                 using (var editKey = Registry.CurrentUser.OpenSubKey(clsidSubKeyPath, writable: true))
                 {
-                    editKey!.SetValue(null, externalEditValue, RegistryValueKind.String);
+                    editKey!.SetValue(name: null, externalEditValue, RegistryValueKind.String);
                 }
 
                 Executor.Deactivate(externalScopeRes.Value!).Success.Should().BeTrue();
                 using (var postExternalKey = Registry.CurrentUser.OpenSubKey(clsidSubKeyPath))
                 {
-                    postExternalKey!.GetValue(null).Should().Be(externalEditValue);
+                    postExternalKey!.GetValue(name: null).Should().Be(externalEditValue);
                 }
             }
             finally

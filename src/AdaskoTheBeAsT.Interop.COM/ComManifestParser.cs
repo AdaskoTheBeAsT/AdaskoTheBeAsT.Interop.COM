@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml;
 
 namespace AdaskoTheBeAsT.Interop.COM;
@@ -146,12 +145,9 @@ internal static class ComManifestParser
 
     internal static bool IsSafeProgId(string? progId)
     {
-        if (progId is null || string.IsNullOrWhiteSpace(progId))
-        {
-            return false;
-        }
-
-        if (progId.Length > 255 || progId[0] == '.' || progId[progId.Length - 1] == '.')
+        if (progId is not { Length: > 0 and <= 255 }
+            || progId[0] == '.'
+            || progId[progId.Length - 1] == '.')
         {
             return false;
         }
@@ -159,27 +155,14 @@ internal static class ComManifestParser
         var previousWasDot = false;
         foreach (var ch in progId)
         {
-            if (ch == '.')
-            {
-                if (previousWasDot)
-                {
-                    return false;
-                }
-
-                previousWasDot = true;
-                continue;
-            }
-
-            previousWasDot = false;
-            var isValidChar = (ch >= 'A' && ch <= 'Z')
-                || (ch >= 'a' && ch <= 'z')
-                || (ch >= '0' && ch <= '9')
-                || ch == '_'
-                || ch == '-';
-            if (!isValidChar)
+            var isDot = ch == '.';
+            if ((isDot && previousWasDot)
+                || ch is not ((>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_' or '-' or '.'))
             {
                 return false;
             }
+
+            previousWasDot = isDot;
         }
 
         return true;
@@ -266,38 +249,42 @@ internal static class ComManifestParser
         ManifestParseState state,
         out int errorCode)
     {
-        errorCode = 0;
         var scope = new ElementScope();
         while (reader.Read())
         {
-            if (reader.NodeType == XmlNodeType.Text || reader.NodeType == XmlNodeType.SignificantWhitespace)
+            if (!ReadManifestNode(reader, manifestPath, state, scope, out errorCode))
             {
-                if (scope.ReadingProgIdElement && !scope.TryAppendProgIdText(reader.Value))
+                return false;
+            }
+        }
+
+        errorCode = scope.HasAssemblyRoot ? 0 : NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
+        return scope.HasAssemblyRoot;
+    }
+
+    private static bool ReadManifestNode(
+        XmlReader reader,
+        string manifestPath,
+        ManifestParseState state,
+        ElementScope scope,
+        out int errorCode)
+    {
+        errorCode = 0;
+        switch (reader.NodeType)
+        {
+            case XmlNodeType.Text or XmlNodeType.SignificantWhitespace when scope.ReadingProgIdElement:
+                if (!scope.TryAppendProgIdText(reader.Value))
                 {
                     errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
                     return false;
                 }
 
-                continue;
-            }
-
-            if (reader.NodeType == XmlNodeType.EndElement)
-            {
-                if (!scope.OnEndElement(reader, out errorCode))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            if (reader.NodeType != XmlNodeType.Element)
-            {
-                continue;
-            }
-
-            if (!scope.HasAssemblyRoot)
-            {
+                return true;
+            case XmlNodeType.EndElement:
+                return scope.OnEndElement(reader, out errorCode);
+            case XmlNodeType.Element when scope.HasAssemblyRoot:
+                return ProcessElement(reader, manifestPath, state, scope, out errorCode);
+            case XmlNodeType.Element:
                 if (!string.Equals(reader.LocalName, "assembly", StringComparison.Ordinal))
                 {
                     errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
@@ -305,22 +292,10 @@ internal static class ComManifestParser
                 }
 
                 scope.HasAssemblyRoot = true;
-                continue;
-            }
-
-            if (!ProcessElement(reader, manifestPath, state, scope, out errorCode))
-            {
-                return false;
-            }
+                return true;
+            default:
+                return true;
         }
-
-        if (!scope.HasAssemblyRoot)
-        {
-            errorCode = NativeMethods.ERROR_SXS_CANT_GEN_ACTCTX;
-            return false;
-        }
-
-        return true;
     }
 
     private static bool ProcessElement(
@@ -520,7 +495,7 @@ internal static class ComManifestParser
 
         var flagsText = reader.GetAttribute("flags");
         var flagsValue = ParseTypeLibFlags(flagsText);
-        state.AddTypeLib(new ManifestTypeLibEntry(dllPath, tlbid, version, majorVersion, minorVersion, resolvedHelpDir, resourceId, flagsValue));
+        state.AddTypeLib(new ManifestTypeLibEntry(dllPath, tlbid, version, (majorVersion, minorVersion), resolvedHelpDir, resourceId, flagsValue));
         return true;
     }
 
@@ -927,8 +902,7 @@ internal static class ComManifestParser
             ComThreadingModel threadingModel,
             bool isKnownProxyStub,
             IReadOnlyList<string> progIds,
-            string? primaryProgId,
-            string? versionIndependentProgId)
+            (string? Primary, string? VersionIndependent) progIdRoles)
         {
             DllPath = dllPath;
             Clsid = clsid;
@@ -936,8 +910,8 @@ internal static class ComManifestParser
             ThreadingModel = threadingModel;
             IsKnownProxyStub = isKnownProxyStub;
             ProgIds = progIds;
-            PrimaryProgId = primaryProgId;
-            VersionIndependentProgId = versionIndependentProgId;
+            PrimaryProgId = progIdRoles.Primary;
+            VersionIndependentProgId = progIdRoles.VersionIndependent;
         }
 
         internal string DllPath { get; }
@@ -963,8 +937,7 @@ internal static class ComManifestParser
             string dllPath,
             Guid tlbId,
             string version,
-            ushort majorVersion,
-            ushort minorVersion,
+            (ushort Major, ushort Minor) versionNumbers,
             string helpDirectory,
             string? resourceId,
             int flags)
@@ -972,8 +945,8 @@ internal static class ComManifestParser
             DllPath = dllPath;
             TlbId = tlbId;
             Version = version;
-            MajorVersion = majorVersion;
-            MinorVersion = minorVersion;
+            MajorVersion = versionNumbers.Major;
+            MinorVersion = versionNumbers.Minor;
             HelpDirectory = helpDirectory;
             ResourceId = resourceId;
             Flags = flags;
@@ -1296,8 +1269,7 @@ internal static class ComManifestParser
                     item.ThreadingModel,
                     isKnownProxyStub,
                     [.. item.ProgIds],
-                    primaryProgId,
-                    versionIndependentProgId));
+                    (primaryProgId, versionIndependentProgId)));
 
                 if (dllPathSet.Add(item.DllPath))
                 {
@@ -1328,8 +1300,7 @@ internal static class ComManifestParser
                     ComThreadingModel.Both,
                     isKnownProxyStub: true,
                     progIds: [],
-                    primaryProgId: null,
-                    versionIndependentProgId: null));
+                    progIdRoles: (null, null)));
 
                 if (dllPathSet.Add(ps.DllPath))
                 {
@@ -1340,9 +1311,13 @@ internal static class ComManifestParser
 
         private void AppendTypeLibAndDefaultPaths(List<string> dllPaths, HashSet<string> dllPathSet)
         {
-            foreach (var dllPath in _typeLibs.Select(static tlb => tlb.DllPath).Where(dllPathSet.Add))
+            for (var i = 0; i < _typeLibs.Count; i++)
             {
-                dllPaths.Add(dllPath);
+                var dllPath = _typeLibs[i].DllPath;
+                if (dllPathSet.Add(dllPath))
+                {
+                    dllPaths.Add(dllPath);
+                }
             }
 
             if (dllPaths.Count == 0 && DefaultAssemblyPath is not null && !string.IsNullOrWhiteSpace(DefaultAssemblyPath))

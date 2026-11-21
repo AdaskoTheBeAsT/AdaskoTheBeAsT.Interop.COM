@@ -27,10 +27,11 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
     public void EightFreshStaThreadsContendingOnLockAndActivateSimultaneouslyShouldSucceedWithBalancedApartment()
     {
         const int workerCount = 8;
+        var cancellationToken = TestContext.Current.CancellationToken;
         var workers = new (string WorkerDirectory, string DllPath, string ManifestPath)[workerCount];
         for (var i = 0; i < workerCount; i++)
         {
-            workers[i] = ProbeNativeInterop.CreateIsolatedProbeWorker($"sta_warm_{i}");
+            workers[i] = ProbeNativeInterop.CreateIsolatedProbeWorker("sta_warm_" + i.ToString(CultureInfo.InvariantCulture));
         }
 
         try
@@ -42,12 +43,12 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
 
             for (var index = 0; index < workerCount; index++)
             {
-                var captured = workers[index];
+                var (_, dllPath, manifestPath) = workers[index];
                 threads[index] = new Thread(() =>
                 {
                     try
                     {
-                        startBarrier.SignalAndWait(TimeSpan.FromSeconds(20)).Should().BeTrue();
+                        startBarrier.SignalAndWait(TimeSpan.FromSeconds(20), cancellationToken).Should().BeTrue();
 
                         NanoServerOptions.EnsureCurrentStaThreadInitialized();
                         NanoServerOptions.EnsureCurrentStaThreadInitialized(); // O(1) thread-local fast path
@@ -61,7 +62,7 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
                         (aptBefore is NativeMethods.APTTYPE_STA or NativeMethods.APTTYPE_MAINSTA).Should().BeTrue();
 
                         var act = Executor.Activate(
-                            [new ComPathDescriptor(captured.DllPath, captured.ManifestPath)],
+                            [new ComPathDescriptor(dllPath, manifestPath)],
                             new ComActivationOptions
                             {
                                 PreloadModules = true,
@@ -74,14 +75,14 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
                         ComModuleDiagnostics.VerifyRegisteredInprocServer(
                             ProbeNativeInterop.AlphaClsid,
                             scope.LoadedModuleHandles[0],
-                            captured.DllPath)
+                            dllPath)
                             .Status.Should().Be(ComModuleVerificationStatus.Match);
 
                         Executor.Deactivate(scope).Success.Should().BeTrue();
 
                         NativeMethods.CoGetApartmentType(out var aptAfter, out _).Should().Be(0);
                         aptAfter.Should().Be(aptBefore);
-                        NativeMethods.GetModuleHandleW(captured.DllPath).Should().Be(IntPtr.Zero);
+                        NativeMethods.GetModuleHandleW(dllPath).Should().Be(IntPtr.Zero);
                     }
                     catch (Exception ex)
                     {
@@ -408,7 +409,9 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
                 var workerHandle = scope.LoadedModuleHandles[0];
 
                 var patchedCount = ComModuleQuirks.SuppressUninitializeImports(workerHandle);
-                patchedCount.Should().BeGreaterThanOrEqualTo(2); // CoUninitialize + OleUninitialize
+
+                // Both CoUninitialize and OleUninitialize imports should be patched.
+                patchedCount.Should().BeGreaterThanOrEqualTo(2);
                 ComModuleQuirks.SuppressUninitializeImports(workerHandle).Should().Be(patchedCount); // Idempotent
 
                 // Verify strict W^X on the native no-op stub page: allocated RW, transitioned to RX, never RWX!
@@ -515,9 +518,9 @@ public class StaPreWarmingLocaleQuirksDiagnosticsAndManifestRewriterTest
             try
             {
                 var sourceManifestPath = Path.Combine(templateDir, "TemplateProbe.manifest");
-                var orphanTlbId = "{99999999-8888-7777-6666-555555555555}";
-                var unusedIid = "{11111111-2222-3333-4444-555555555555}";
-                var psOaIid = "{00020424-0000-0000-C000-000000000046}";
+                const string orphanTlbId = "{99999999-8888-7777-6666-555555555555}";
+                const string unusedIid = "{11111111-2222-3333-4444-555555555555}";
+                const string psOaIid = "{00020424-0000-0000-C000-000000000046}";
                 File.WriteAllText(
                     sourceManifestPath,
                     $"""

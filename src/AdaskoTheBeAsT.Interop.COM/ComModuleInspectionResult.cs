@@ -13,18 +13,16 @@ public sealed class ComModuleInspectionResult
         ComModuleVerificationStatus status,
         IntPtr moduleHandle,
         string? modulePath,
-        IntPtr vtableAddress,
-        IntPtr methodSlotAddress,
-        int methodSlotIndex,
+        (IntPtr Vtable, IntPtr Method, int Index) slot,
         Guid interfaceId,
         string diagnosticMessage)
     {
         Status = status;
         ModuleHandle = moduleHandle;
         ModulePath = modulePath;
-        VtableAddress = vtableAddress;
-        MethodSlotAddress = methodSlotAddress;
-        MethodSlotIndex = methodSlotIndex;
+        VtableAddress = slot.Vtable;
+        MethodSlotAddress = slot.Method;
+        MethodSlotIndex = slot.Index;
         InterfaceId = interfaceId;
         DiagnosticMessage = diagnosticMessage;
     }

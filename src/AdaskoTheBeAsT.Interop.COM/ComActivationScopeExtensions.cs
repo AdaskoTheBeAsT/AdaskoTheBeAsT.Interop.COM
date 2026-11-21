@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Runtime.InteropServices;
 #if NET8_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -160,7 +161,7 @@ public static class ComActivationScopeExtensions
         {
             error = new ArgumentOutOfRangeException(
                 nameof(moduleIndex),
-                "Module index must be less than LoadedModuleHandles.Count (" + handles.Count + ").");
+                "Module index must be less than LoadedModuleHandles.Count (" + handles.Count.ToString(CultureInfo.InvariantCulture) + ").");
             return false;
         }
 

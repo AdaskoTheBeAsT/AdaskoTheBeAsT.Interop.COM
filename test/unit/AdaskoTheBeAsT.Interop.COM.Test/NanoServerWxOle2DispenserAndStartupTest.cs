@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using AwesomeAssertions;
 using Xunit;
@@ -86,7 +87,13 @@ public class NanoServerWxOle2DispenserAndStartupTest
                             out var ds);
                         if (iterHr != 0 || c != 2 || d != 2 || ds != 1)
                         {
-                            throw new InvalidOperationException($"Dispenser iteration failed: hr=0x{iterHr:X8}, c={c}, d={d}, ds={ds}");
+                            throw new InvalidOperationException(string.Format(
+                                CultureInfo.InvariantCulture,
+                                "Dispenser iteration failed: hr=0x{0:X8}, c={1}, d={2}, ds={3}",
+                                iterHr,
+                                c,
+                                d,
+                                ds));
                         }
                     }
                 }
@@ -192,7 +199,7 @@ public class NanoServerWxOle2DispenserAndStartupTest
                     }
 
                     // Query IPersistStream to save via OleSaveToStreamImpl.
-                    var iidPersistStream = new Guid("00000109-0000-0000-C000-000000000046");
+                    var iidPersistStream = new Guid(0x00000109, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46);
                     Marshal.ThrowExceptionForHR(NativeMethods.QueryInterface(probeUnk, ref iidPersistStream, out var persistStreamPtr));
                     try
                     {

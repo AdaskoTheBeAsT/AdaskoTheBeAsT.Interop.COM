@@ -32,7 +32,7 @@ public class SafeArrayMarshalTest
     public void CopyFromBorrowedSafeArrayShouldSupportEmptyDelphiSafeArray()
     {
         Marshal.ThrowExceptionForHR(
-            ProbeNativeInterop.SafeNativeMethods.CreateDelphiBorrowedInt32SafeArray(null, 0, 1, out var psa));
+            ProbeNativeInterop.SafeNativeMethods.CreateDelphiBorrowedInt32SafeArray(values: null, 0, 1, out var psa));
 
         var copied = SafeArrayMarshal.CopyFromBorrowedSafeArray<int>(psa);
         copied.Should().BeEmpty();
@@ -91,22 +91,22 @@ public class SafeArrayMarshalTest
 
         var borrowed = SafeArrayMarshal.CopyBorrowedVariantArray(psa);
         borrowed.Should().HaveCount(4);
-        borrowed[0].Should().Be(42);
-        borrowed[1].Should().Be(6.5);
-        borrowed[2].Should().Be("DelphiVB6");
+        borrowed.Should().HaveElementAt(0, 42);
+        borrowed.Should().HaveElementAt(1, 6.5);
+        borrowed.Should().HaveElementAt(2, "DelphiVB6");
         borrowed[3].Should().BeNull();
 
         var owned = SafeArrayMarshal.ConsumeOwnedVariantArray(psa);
-        owned[0].Should().Be(42);
-        owned[1].Should().Be(6.5);
-        owned[2].Should().Be("DelphiVB6");
+        owned.Should().HaveElementAt(0, 42);
+        owned.Should().HaveElementAt(1, 6.5);
+        owned.Should().HaveElementAt(2, "DelphiVB6");
         owned[3].Should().BeNull();
     }
 
     [Fact]
     public void NormalizeVariantArrayAndCreateOneBasedArrayShouldHandleZeroBasedOneBasedNegativeAndVariantArrays()
     {
-        SafeArrayMarshal.NormalizeVariantArray<double>(null).Should().BeEmpty();
+        SafeArrayMarshal.NormalizeVariantArray<double>(comArray: null).Should().BeEmpty();
 
         var szArray = new[] { 1.0, 2.0, 3.0 };
         SafeArrayMarshal.NormalizeVariantArray<double>(szArray).Should().BeSameAs(szArray);

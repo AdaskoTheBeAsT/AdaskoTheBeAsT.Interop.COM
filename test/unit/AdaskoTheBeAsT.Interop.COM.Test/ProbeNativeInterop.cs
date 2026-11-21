@@ -17,6 +17,8 @@ internal static class ProbeNativeInterop
     internal const string UnavailableClsidString = "{3a930e11-62b4-41d5-8c0a-510d92a70401}";
     internal const string PersistProbeClsidString = "{3a930e11-62b4-41d5-8c0a-510d92a70501}";
 
+    internal static readonly Guid IUnknownIid = new(0, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46);
+
 #pragma warning disable MA0176 // Optimize guid creation
     internal static readonly Guid AlphaClsid = new("3a930e11-62b4-41d5-8c0a-510d92a70101");
     internal static readonly Guid AlphaIid = new(AlphaIidString);
@@ -110,7 +112,7 @@ internal static class ProbeNativeInterop
 
     internal static object CreateComInstance(Guid clsid)
     {
-        var iid = new Guid("00000000-0000-0000-C000-000000000046");
+        var iid = IUnknownIid;
         var hr = NativeMethods.CoCreateInstance(
             ref clsid,
             IntPtr.Zero,

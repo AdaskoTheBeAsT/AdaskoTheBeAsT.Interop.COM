@@ -18,13 +18,14 @@ public class ComModuleDiagnosticsTest
     [Fact]
     public void VerifyInstanceModuleShouldMatchIsolatedDllAndDetectActualMismatchAcrossWorkers()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var (worker1Dir, dll1Path, manifest1Path) = ProbeNativeInterop.CreateIsolatedProbeWorker("diag_w1");
         var (worker2Dir, dll2Path, manifest2Path) = ProbeNativeInterop.CreateIsolatedProbeWorker("diag_w2");
         try
         {
             NanoServerOptions.EnsureInitialized();
-            using var worker2Ready = new ManualResetEventSlim(false);
-            using var diagnosticsCompleted = new ManualResetEventSlim(false);
+            using var worker2Ready = new ManualResetEventSlim(initialState: false);
+            using var diagnosticsCompleted = new ManualResetEventSlim(initialState: false);
             var nativeBase2 = IntPtr.Zero;
             ExceptionDispatchInfo? worker1Failure = null;
             ExceptionDispatchInfo? worker2Failure = null;
@@ -50,7 +51,7 @@ public class ComModuleDiagnosticsTest
                     var (base2, status2) = ExerciseWorker2Instance(scope2, dll2Path);
                     _ = Interlocked.Exchange(ref nativeBase2, base2);
                     worker2Ready.Set();
-                    _ = diagnosticsCompleted.Wait(TimeSpan.FromSeconds(15));
+                    _ = diagnosticsCompleted.Wait(TimeSpan.FromSeconds(15), cancellationToken);
 
                     var deact2 = Executor.Deactivate(scope2);
                     deact2.Success.Should().BeTrue();
@@ -73,7 +74,7 @@ public class ComModuleDiagnosticsTest
             {
                 try
                 {
-                    _ = worker2Ready.Wait(TimeSpan.FromSeconds(15));
+                    _ = worker2Ready.Wait(TimeSpan.FromSeconds(15), cancellationToken);
                     if (Volatile.Read(ref worker2Failure) is not null)
                     {
                         return;
@@ -213,10 +214,11 @@ public class ComModuleDiagnosticsTest
     [Fact]
     public void CrossApartmentProxyVtableShouldReportInconclusiveRatherThanFalsePositiveMatchOrMismatch()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var marshaledStream = IntPtr.Zero;
         Exception? staError = null;
-        using var marshaledReady = new ManualResetEventSlim(false);
-        using var finishOwnerThread = new ManualResetEventSlim(false);
+        using var marshaledReady = new ManualResetEventSlim(initialState: false);
+        using var finishOwnerThread = new ManualResetEventSlim(initialState: false);
 
         var ownerSta = new Thread(() =>
         {
@@ -236,7 +238,7 @@ public class ComModuleDiagnosticsTest
                 var unk = Marshal.GetIUnknownForObject(obj);
                 try
                 {
-                    var iidUnk = new Guid("00000000-0000-0000-C000-000000000046");
+                    var iidUnk = ProbeNativeInterop.IUnknownIid;
                     Marshal.ThrowExceptionForHR(SafeNativeMethods.CoMarshalInterThreadInterfaceInStream(ref iidUnk, unk, out marshaledStream));
                 }
                 finally
@@ -245,7 +247,7 @@ public class ComModuleDiagnosticsTest
                 }
 
                 marshaledReady.Set();
-                while (!finishOwnerThread.Wait(10))
+                while (!finishOwnerThread.Wait(10, cancellationToken))
                 {
                     NativeMethods.PumpPendingMessages();
                 }
@@ -279,7 +281,7 @@ public class ComModuleDiagnosticsTest
             {
                 try
                 {
-                    var iidUnk = new Guid("00000000-0000-0000-C000-000000000046");
+                    var iidUnk = ProbeNativeInterop.IUnknownIid;
                     Marshal.ThrowExceptionForHR(SafeNativeMethods.CoGetInterfaceAndReleaseStream(marshaledStream, ref iidUnk, out var proxyUnk));
                     marshaledStream = IntPtr.Zero;
                     try

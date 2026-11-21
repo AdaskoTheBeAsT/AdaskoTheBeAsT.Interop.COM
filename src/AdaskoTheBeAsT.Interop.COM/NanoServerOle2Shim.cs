@@ -21,6 +21,7 @@ internal static class NanoServerOle2Shim
     private const int ImportDirectoryIndex = 1;
     private const int DelayImportDirectoryIndex = 13;
     private const uint StubPageSize = 4096;
+    private const string Ole32DllName = "ole32.dll";
 
 #pragma warning disable MA0176 // Optimize guid creation
     private static readonly Guid IidIRunnableObject = new("00000126-0000-0000-C000-000000000046");
@@ -58,7 +59,7 @@ internal static class NanoServerOle2Shim
     private static readonly HashSet<string> ProtectedModuleFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "combase.dll",
-        "ole32.dll",
+        Ole32DllName,
         "oleaut32.dll",
         "rpcrt4.dll",
         "ntdll.dll",
@@ -311,10 +312,10 @@ internal static class NanoServerOle2Shim
             return Ole2ProviderKind.NanoOsShim;
         }
 
-        var ole32Handle = NativeMethods.GetModuleHandleW("ole32.dll");
+        var ole32Handle = NativeMethods.GetModuleHandleW(Ole32DllName);
         if (ole32Handle == IntPtr.Zero)
         {
-            ole32Handle = NativeMethods.LoadLibraryEx("ole32.dll", IntPtr.Zero, 0);
+            ole32Handle = NativeMethods.LoadLibraryEx(Ole32DllName, IntPtr.Zero, 0);
         }
 
         if (ole32Handle != IntPtr.Zero && HasAllOle2Exports(ole32Handle, verifyOleRunBehavior: true))
@@ -845,7 +846,7 @@ internal static class NanoServerOle2Shim
             return false;
         }
 
-        return string.Equals(dllName, "ole32.dll", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(dllName, Ole32DllName, StringComparison.OrdinalIgnoreCase)
             || dllName.StartsWith("ext-ms-win-com-ole32-", StringComparison.OrdinalIgnoreCase)
             || dllName.StartsWith("api-ms-win-ole32-", StringComparison.OrdinalIgnoreCase);
     }

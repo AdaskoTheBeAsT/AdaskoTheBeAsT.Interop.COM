@@ -327,14 +327,7 @@ public static class NanoServerOptions
             {
                 if (_initializedState == 0)
                 {
-                    Volatile.Write(ref _enableSxsFallback, !IsEnvironmentFlagTrue(DisableSxsFallbackEnvironmentVariable) ? 1 : 0);
-                    Volatile.Write(ref _enableStaShim, !IsEnvironmentFlagTrue(DisableStaShimEnvironmentVariable) ? 1 : 0);
-                    Volatile.Write(ref _enableLegacyOle2Shim, IsEnvironmentFlagTrue(EnableLegacyOle2ShimEnvironmentVariable) ? 1 : 0);
-                    Volatile.Write(ref _enableDispenserManagerFallback, IsEnvironmentFlagTrue(EnableDispenserManagerFallbackEnvironmentVariable) ? 1 : 0);
-                    Volatile.Write(ref _initializedState, 1);
-                    NanoServerStaShim.Initialize();
-                    NanoServerOle2Shim.RefreshState();
-                    NanoServerDispenserManager.RefreshState();
+                    InitializeUnderLock();
                 }
             }
         }
@@ -363,6 +356,18 @@ public static class NanoServerOptions
     [ModuleInitializer]
     internal static void InitializeModule() => EnsureInitialized(waitForHostThread: false);
 #pragma warning restore CA2255
+
+    private static void InitializeUnderLock()
+    {
+        Volatile.Write(ref _enableSxsFallback, !IsEnvironmentFlagTrue(DisableSxsFallbackEnvironmentVariable) ? 1 : 0);
+        Volatile.Write(ref _enableStaShim, !IsEnvironmentFlagTrue(DisableStaShimEnvironmentVariable) ? 1 : 0);
+        Volatile.Write(ref _enableLegacyOle2Shim, IsEnvironmentFlagTrue(EnableLegacyOle2ShimEnvironmentVariable) ? 1 : 0);
+        Volatile.Write(ref _enableDispenserManagerFallback, IsEnvironmentFlagTrue(EnableDispenserManagerFallbackEnvironmentVariable) ? 1 : 0);
+        Volatile.Write(ref _initializedState, 1);
+        NanoServerStaShim.Initialize();
+        NanoServerOle2Shim.RefreshState();
+        NanoServerDispenserManager.RefreshState();
+    }
 
     private static bool IsCurrentThreadSta()
     {

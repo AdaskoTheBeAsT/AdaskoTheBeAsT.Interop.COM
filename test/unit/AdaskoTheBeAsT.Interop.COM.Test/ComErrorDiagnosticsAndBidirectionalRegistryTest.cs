@@ -22,7 +22,7 @@ public class ComErrorDiagnosticsAndBidirectionalRegistryTest
             ComErrorDiagnostics.PeekCurrentErrorInfo().Should().BeNull();
             ComErrorDiagnostics.ConsumeCurrentErrorInfo().Should().BeNull();
 
-            var customHr = unchecked((int)0x800A03E9);
+            const int customHr = unchecked((int)0x800A03E9);
             var alphaIid = ProbeNativeInterop.AlphaIid;
             var iidBuffer = Marshal.AllocHGlobal(16);
             int returnedHr;

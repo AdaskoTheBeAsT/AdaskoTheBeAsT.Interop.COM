@@ -179,15 +179,15 @@ internal static partial class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct MEMORY_BASIC_INFORMATION
+    internal readonly struct MEMORY_BASIC_INFORMATION
     {
-        public IntPtr BaseAddress;
-        public IntPtr AllocationBase;
-        public uint AllocationProtect;
-        public UIntPtr RegionSize;
-        public uint State;
-        public uint Protect;
-        public uint Type;
+        public readonly IntPtr BaseAddress;
+        public readonly IntPtr AllocationBase;
+        public readonly uint AllocationProtect;
+        public readonly UIntPtr RegionSize;
+        public readonly uint State;
+        public readonly uint Protect;
+        public readonly uint Type;
     }
 }
 

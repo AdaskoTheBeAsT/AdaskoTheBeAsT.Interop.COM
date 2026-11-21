@@ -156,30 +156,9 @@ internal static class NanoServerDispenserManager
             osShimHandle = NativeMethods.GetModuleHandleW("nanoserver_sta_shim.dll");
         }
 
-        if (osShimHandle != IntPtr.Zero)
+        if (osShimHandle != IntPtr.Zero && HasOsShimDispenserProvider(osShimHandle))
         {
-            var ensureExport = NativeMethods.GetProcAddress(osShimHandle, "NanoServerStaShim_EnsureDispenserManager");
-            if (ensureExport != IntPtr.Zero)
-            {
-                var ensureFn = Marshal.GetDelegateForFunctionPointer<OsShimEnsureDispenserDelegate>(ensureExport);
-                if (ensureFn() >= 0)
-                {
-                    return DispenserProviderKind.NanoOsShim;
-                }
-            }
-
-            var dllGetClassObject = NativeMethods.GetProcAddress(osShimHandle, "DllGetClassObject");
-            if (dllGetClassObject != IntPtr.Zero)
-            {
-                var fn = Marshal.GetDelegateForFunctionPointer<NativeMethods.DllGetClassObjectDelegate>(dllGetClassObject);
-                var clsid = ClsidDispenserManager;
-                var iid = IidIClassFactory;
-                if (fn(ref clsid, ref iid, out var shimFactory) >= 0 && shimFactory != IntPtr.Zero)
-                {
-                    _ = Marshal.Release(shimFactory);
-                    return DispenserProviderKind.NanoOsShim;
-                }
-            }
+            return DispenserProviderKind.NanoOsShim;
         }
 
         // 2. Check whether full Windows comsvcs.dll or an already-registered provider satisfies CLSID_DispenserManager.
@@ -204,6 +183,36 @@ internal static class NanoServerDispenserManager
         }
 
         return DispenserProviderKind.None;
+    }
+
+    private static bool HasOsShimDispenserProvider(IntPtr osShimHandle)
+    {
+        var ensureExport = NativeMethods.GetProcAddress(osShimHandle, "NanoServerStaShim_EnsureDispenserManager");
+        if (ensureExport != IntPtr.Zero)
+        {
+            var ensureFn = Marshal.GetDelegateForFunctionPointer<OsShimEnsureDispenserDelegate>(ensureExport);
+            if (ensureFn() >= 0)
+            {
+                return true;
+            }
+        }
+
+        var dllGetClassObject = NativeMethods.GetProcAddress(osShimHandle, "DllGetClassObject");
+        if (dllGetClassObject == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var fn = Marshal.GetDelegateForFunctionPointer<NativeMethods.DllGetClassObjectDelegate>(dllGetClassObject);
+        var clsid = ClsidDispenserManager;
+        var iid = IidIClassFactory;
+        if (fn(ref clsid, ref iid, out var shimFactory) < 0 || shimFactory == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = Marshal.Release(shimFactory);
+        return true;
     }
 
     private static IntPtr EnsureNativeStubAllocatedUnderLock()
@@ -395,7 +404,7 @@ internal static class NanoServerDispenserManager
         e.Align16();
         var start = e.CurrentAddress;
 
-        // test r8, r8; jnz ppvOk; mov eax, E_POINTER; ret
+        // Return E_POINTER if the output pointer in r8 is null.
         e.Emit(0x4D, 0x85, 0xC0);
         var jnzPpvOk = e.EmitJccRel8(0x75);
         e.Emit(0xB8);
@@ -405,7 +414,7 @@ internal static class NanoServerDispenserManager
         e.MarkRel8(jnzPpvOk);
         e.Emit(0x49, 0xC7, 0x00, 0x00, 0x00, 0x00, 0x00);
 
-        // test rdx, rdx; jnz riidOk; mov eax, E_INVALIDARG; ret
+        // Return E_INVALIDARG if the interface ID pointer in rdx is null.
         e.Emit(0x48, 0x85, 0xD2);
         var jnzRiidOk = e.EmitJccRel8(0x75);
         e.Emit(0xB8);
@@ -452,7 +461,7 @@ internal static class NanoServerDispenserManager
         e.Align16();
         var start = e.CurrentAddress;
 
-        // test r9, r9; jnz ppvOk; mov eax, E_POINTER; ret
+        // Return E_POINTER if the output pointer in r9 is null.
         e.Emit(0x4D, 0x85, 0xC9);
         var jnzPpvOk = e.EmitJccRel8(0x75);
         e.Emit(0xB8);
@@ -462,7 +471,7 @@ internal static class NanoServerDispenserManager
         e.MarkRel8(jnzPpvOk);
         e.Emit(0x49, 0xC7, 0x01, 0x00, 0x00, 0x00, 0x00);
 
-        // test rdx, rdx; jz noAgg; mov eax, CLASS_E_NOAGGREGATION; ret
+        // Return CLASS_E_NOAGGREGATION if the caller supplies an outer object in rdx.
         e.Emit(0x48, 0x85, 0xD2);
         var jzNoAgg = e.EmitJccRel8(0x74);
         e.Emit(0xB8);
@@ -504,7 +513,7 @@ internal static class NanoServerDispenserManager
         e.Align16();
         var start = e.CurrentAddress;
 
-        // test r9, r9; jnz ok; mov eax, E_POINTER; ret
+        // Return E_POINTER if the output pointer in r9 is null.
         e.Emit(0x4D, 0x85, 0xC9);
         var jnzOk = e.EmitJccRel8(0x75);
         e.Emit(0xB8);

@@ -143,10 +143,7 @@ internal class ActivationContextApi
             return (IntPtr)(-1);
         }
 
-        if (pending is not null)
-        {
-            pending.ParsedManifest = parsedManifest;
-        }
+        pending?.SetParsedManifest(parsedManifest);
 
         if (options.ForceInProcessFallback)
         {
@@ -405,15 +402,7 @@ internal class ActivationContextApi
 
     internal void ReleaseModuleLeases(List<ModuleLease> leases, bool forceFreeUnusedLibraries = false)
     {
-        var anyUnloadRequested = forceFreeUnusedLibraries;
-        for (var i = 0; i < leases.Count; i++)
-        {
-            if (leases[i].UnloadOnDeactivate)
-            {
-                anyUnloadRequested = true;
-                break;
-            }
-        }
+        var anyUnloadRequested = forceFreeUnusedLibraries || leases.Exists(static lease => lease.UnloadOnDeactivate);
 
         if (anyUnloadRequested)
         {
@@ -437,17 +426,18 @@ internal class ActivationContextApi
                     entry.ActiveLeaseCount--;
                 }
 
-                if (entry.ActiveLeaseCount == 0 && !entry.RetainPermanently)
+                if (entry.ActiveLeaseCount != 0 || entry.RetainPermanently)
                 {
-                    if (TryUnloadModuleEntryUnderLock(entry, this))
-                    {
-                        unmappedAny = true;
-                    }
-                    else
-                    {
-                        entry.PendingDeferredUnload = true;
-                    }
+                    continue;
                 }
+
+                var unmapped = TryUnloadModuleEntryUnderLock(entry, this);
+                if (!unmapped)
+                {
+                    entry.PendingDeferredUnload = true;
+                }
+
+                unmappedAny |= unmapped;
             }
         }
 
@@ -1164,7 +1154,10 @@ internal class ActivationContextApi
 
         internal ComActivationOptions Options { get; }
 
-        internal ComManifestParser.ParsedManifest? ParsedManifest { get; set; }
+        internal ComManifestParser.ParsedManifest? ParsedManifest { get; private set; }
+
+        internal void SetParsedManifest(ComManifestParser.ParsedManifest? parsedManifest)
+            => ParsedManifest = parsedManifest;
     }
 
 #pragma warning disable S107 // Internal activation record aggregates lifecycle state cleanly.

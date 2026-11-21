@@ -319,11 +319,8 @@ internal static class CurrentUserRegistryLeaseManager
 
     private static void WriteCurrentUserStringValue(string subKeyPath, string valueName, string valueData)
     {
-        using var key = Registry.CurrentUser.CreateSubKey(subKeyPath, writable: true);
-        if (key is null)
-        {
-            throw new InvalidOperationException("Failed to open HKCU subkey: " + subKeyPath);
-        }
+        using var key = Registry.CurrentUser.CreateSubKey(subKeyPath, writable: true)
+            ?? throw new InvalidOperationException("Failed to open HKCU subkey: " + subKeyPath);
 
         key.SetValue(valueName, valueData, RegistryValueKind.String);
     }

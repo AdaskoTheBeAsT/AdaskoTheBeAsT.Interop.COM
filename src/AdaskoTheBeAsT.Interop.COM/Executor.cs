@@ -728,14 +728,7 @@ public static class Executor
 
             if (parsedManifest is not null)
             {
-                for (var i = 0; i < parsedManifest.ReferencedDllPaths.Count; i++)
-                {
-                    var path = parsedManifest.ReferencedDllPaths[i];
-                    if (dllPathSet.Add(path))
-                    {
-                        referencedDllPaths.Add(path);
-                    }
-                }
+                AppendReferencedDllPaths(parsedManifest.ReferencedDllPaths, dllPathSet, referencedDllPaths);
             }
 
             if (dllPathSet.Add(fullAssemblyPath))
@@ -749,6 +742,21 @@ public static class Executor
         if (hasNativeSxsContext && (options.PreloadModules || options.UnloadModulesOnDeactivate))
         {
             AcquireNativeSxsModuleLeases(options, referencedDllPaths, moduleLeases, contextApi);
+        }
+    }
+
+    private static void AppendReferencedDllPaths(
+        IReadOnlyList<string> manifestDllPaths,
+        HashSet<string> dllPathSet,
+        List<string> referencedDllPaths)
+    {
+        for (var i = 0; i < manifestDllPaths.Count; i++)
+        {
+            var path = manifestDllPaths[i];
+            if (dllPathSet.Add(path))
+            {
+                referencedDllPaths.Add(path);
+            }
         }
     }
 
