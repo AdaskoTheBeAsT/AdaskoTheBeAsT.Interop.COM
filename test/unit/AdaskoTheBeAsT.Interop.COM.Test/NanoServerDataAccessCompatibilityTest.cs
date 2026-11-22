@@ -203,7 +203,7 @@ public sealed class NanoServerDataAccessCompatibilityTest : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ConcurrentSeeding_OnlyOpensTheRegistryOnce(bool includeJet)
+    public async Task ConcurrentSeeding_OnlyOpensTheRegistryOnceAsync(bool includeJet)
     {
         using var registeredProvider = CreateKey(RegistryHive.ClassesRoot, ProviderPath + @"\InprocServer32");
         registeredProvider.SetValue(name: null, "installed-provider.dll");
@@ -274,18 +274,18 @@ public sealed class NanoServerDataAccessCompatibilityTest : IDisposable
 
     private void AssertKeyAbsent(string relativePath)
     {
-        using var key = Registry.CurrentUser.OpenSubKey($@"{_registryPath}\{RegistryHive.CurrentUser}\{relativePath}");
+        using var key = Registry.CurrentUser.OpenSubKey($@"{_registryPath}\{nameof(RegistryHive.CurrentUser)}\{relativePath}");
         key.Should().BeNull();
     }
 
     private void AssertUserValues(string relativePath, params (string? Name, object Value, RegistryValueKind Kind)[] values)
     {
-        using var key = Registry.CurrentUser.OpenSubKey($@"{_registryPath}\{RegistryHive.CurrentUser}\{relativePath}");
-        Assert.NotNull(key);
+        using var key = Registry.CurrentUser.OpenSubKey($@"{_registryPath}\{nameof(RegistryHive.CurrentUser)}\{relativePath}");
+        var userKey = key.Should().BeOfType<RegistryKey>().Which;
         foreach (var (name, value, kind) in values)
         {
-            key.GetValue(name).Should().Be(value);
-            key.GetValueKind(name).Should().Be(kind);
+            userKey.GetValue(name).Should().Be(value);
+            userKey.GetValueKind(name).Should().Be(kind);
         }
     }
 }
