@@ -6,6 +6,11 @@ using System.Runtime.Versioning;
 #endif
 using System.Threading;
 using Microsoft.Win32;
+#if NET10_0_OR_GREATER
+using SeedLock = System.Threading.Lock;
+#else
+using SeedLock = object;
+#endif
 
 namespace AdaskoTheBeAsT.Interop.COM;
 
@@ -19,13 +24,7 @@ namespace AdaskoTheBeAsT.Interop.COM;
 #endif
 public static class NanoServerDataAccessCompatibility
 {
-#if NET10_0_OR_GREATER
-    private static readonly Lock SyncRoot = new();
-#else
-    private static readonly object SyncRoot = new();
-#endif
-    private static bool _dataAccessSeeded;
-    private static bool _jetSeeded;
+    private static readonly Seeder DefaultSeeder = new(IsAvailable, RegistryKey.OpenBaseKey);
 
     /// <summary>Checks for the x86 compatibility forwarder on Windows Nano Server.</summary>
     /// <returns>Whether the required Nano Server forwarder is present.</returns>
@@ -36,8 +35,20 @@ public static class NanoServerDataAccessCompatibility
             return false;
         }
 
+        return HasNanoServerForwarder(Environment.SystemDirectory);
+    }
+
+    /// <summary>Seeds missing data access metadata for the current user on x86 Nano Server.</summary>
+    public static void EnsureDataAccessSeeded() => DefaultSeeder.SeedDataAccess();
+
+    /// <summary>Seeds missing Jet 4.0 and data access metadata for the current user on x86 Nano Server.</summary>
+    /// <param name="sharedComDirectory">Trusted directory containing the private 32-bit Jet provider.</param>
+    public static void EnsureJet40AndDataAccessSeeded(string sharedComDirectory) =>
+        DefaultSeeder.SeedJet40AndDataAccess(sharedComDirectory);
+
+    internal static bool HasNanoServerForwarder(string systemDirectory)
+    {
 #pragma warning disable SCS0018, SEC0116 // OS SysWOW64 forwarder path check on Windows Nano Server.
-        var systemDirectory = Environment.SystemDirectory;
         var windowsDirectory = Path.GetDirectoryName(systemDirectory);
         return windowsDirectory is not null
             && !File.Exists(Path.Combine(systemDirectory, "win32u.dll"))
@@ -45,141 +56,160 @@ public static class NanoServerDataAccessCompatibility
 #pragma warning restore SCS0018, SEC0116
     }
 
-    /// <summary>Seeds missing data access metadata for the current user on x86 Nano Server.</summary>
-    public static void EnsureDataAccessSeeded()
+    // Keep the guard and hive selection on the production path while allowing isolated registry tests.
+    internal sealed class Seeder
     {
-        if (Volatile.Read(ref _dataAccessSeeded)
-            || !IsAvailable())
+        private readonly SeedLock _syncRoot = new();
+        private readonly Func<bool> _isAvailable;
+        private readonly Func<RegistryHive, RegistryView, RegistryKey> _openBaseKey;
+        private bool _dataAccessSeeded;
+        private bool _jetSeeded;
+
+        internal Seeder(Func<bool> isAvailable, Func<RegistryHive, RegistryView, RegistryKey> openBaseKey)
         {
-            return;
+            ThrowHelper.ThrowIfNull(isAvailable, nameof(isAvailable));
+            ThrowHelper.ThrowIfNull(openBaseKey, nameof(openBaseKey));
+            _isAvailable = isAvailable;
+            _openBaseKey = openBaseKey;
         }
 
-        lock (SyncRoot)
+        internal void SeedDataAccess()
         {
-            if (_dataAccessSeeded)
+            if (Volatile.Read(ref _dataAccessSeeded)
+                || !_isAvailable())
             {
                 return;
             }
 
-            using var hkcu32 = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
-            SeedDataAccessVersionIfMissing(hkcu32);
-            Volatile.Write(ref _dataAccessSeeded, true);
-        }
-    }
+            lock (_syncRoot)
+            {
+                if (_dataAccessSeeded)
+                {
+                    return;
+                }
 
-    /// <summary>Seeds missing Jet 4.0 and data access metadata for the current user on x86 Nano Server.</summary>
-    /// <param name="sharedComDirectory">Trusted directory containing the private 32-bit Jet provider.</param>
-    public static void EnsureJet40AndDataAccessSeeded(string sharedComDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(sharedComDirectory))
-        {
-            throw new ArgumentException("A private provider directory is required.", nameof(sharedComDirectory));
-        }
-
-        if (Volatile.Read(ref _jetSeeded)
-            || !IsAvailable())
-        {
-            return;
+                using var hkcu32 = _openBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
+                using var hklm = _openBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+                SeedDataAccessVersionIfMissing(hkcu32, hklm);
+                Volatile.Write(ref _dataAccessSeeded, true);
+            }
         }
 
-        lock (SyncRoot)
+        internal void SeedJet40AndDataAccess(string sharedComDirectory)
         {
-            if (_jetSeeded)
+            if (string.IsNullOrWhiteSpace(sharedComDirectory))
+            {
+                throw new ArgumentException("A private provider directory is required.", nameof(sharedComDirectory));
+            }
+
+            if (Volatile.Read(ref _jetSeeded)
+                || !_isAvailable())
             {
                 return;
             }
 
-            using var hkcu32 = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
-            SeedDataAccessVersionIfMissing(hkcu32);
-            SeedJetEngineSettingsIfMissing(hkcu32);
-            SeedJetOleDbProviderMetadataIfMissing(hkcu32, sharedComDirectory);
-            Volatile.Write(ref _dataAccessSeeded, true);
-            Volatile.Write(ref _jetSeeded, true);
-        }
-    }
+            lock (_syncRoot)
+            {
+                if (_jetSeeded)
+                {
+                    return;
+                }
 
-    private static void SeedDataAccessVersionIfMissing(RegistryKey hkcu32)
-    {
-        using var machineDataAccess = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\DataAccess");
-        if (machineDataAccess?.GetValue("FullInstallVer") is string { Length: > 0 })
+                using var hkcu32 = _openBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
+                using var hklm = _openBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+                SeedDataAccessVersionIfMissing(hkcu32, hklm);
+                SeedJetEngineSettingsIfMissing(hkcu32, hklm);
+                using var hkcr = _openBaseKey(RegistryHive.ClassesRoot, RegistryView.Default);
+                SeedJetOleDbProviderMetadataIfMissing(hkcu32, hkcr, sharedComDirectory);
+                Volatile.Write(ref _dataAccessSeeded, true);
+                Volatile.Write(ref _jetSeeded, true);
+            }
+        }
+
+        private static void SeedDataAccessVersionIfMissing(RegistryKey hkcu32, RegistryKey hklm)
         {
-            return;
+            using var machineDataAccess = hklm.OpenSubKey(@"SOFTWARE\Microsoft\DataAccess");
+            if (machineDataAccess?.GetValue("FullInstallVer") is string { Length: > 0 })
+            {
+                return;
+            }
+
+            using var existingUser = hkcu32.OpenSubKey(@"Software\Microsoft\DataAccess");
+            if (existingUser?.GetValue("FullInstallVer") is string { Length: > 0 })
+            {
+                return;
+            }
+
+            using var da = hkcu32.CreateSubKey(@"Software\Microsoft\DataAccess");
+            SetIfMissing(da, "Full21Install", -1, RegistryValueKind.DWord);
+            SetIfMissing(da, "Version", "6.3.9600.16384", RegistryValueKind.String);
+            SetIfMissing(da, "FullInstallVer", "6.3.9600.16384", RegistryValueKind.String);
         }
 
-        using var existingUser = hkcu32.OpenSubKey(@"Software\Microsoft\DataAccess");
-        if (existingUser?.GetValue("FullInstallVer") is string { Length: > 0 })
+        private static void SeedJetEngineSettingsIfMissing(RegistryKey hkcu32, RegistryKey hklm)
         {
-            return;
+            using var machineJet = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Jet\4.0\Engines");
+            if (machineJet?.GetValue("SandBoxMode") is not null)
+            {
+                return;
+            }
+
+            using var eng = hkcu32.CreateSubKey(@"Software\Microsoft\Jet\4.0\Engines");
+            SetIfMissing(eng, "SandBoxMode", 2, RegistryValueKind.DWord);
+            SetIfMissing(eng, "SystemDB", "system.mdb", RegistryValueKind.String);
+            using var j4 = hkcu32.CreateSubKey(@"Software\Microsoft\Jet\4.0\Engines\Jet 4.0");
+            SetIfMissing(j4, "PageTimeout", 5000, RegistryValueKind.DWord);
+            SetIfMissing(j4, "LockRetry", 20, RegistryValueKind.DWord);
+            SetIfMissing(j4, "MaxBufferSize", 0, RegistryValueKind.DWord);
+            SetIfMissing(j4, "Threads", 3, RegistryValueKind.DWord);
+            SetIfMissing(j4, "UserCommitSync", "yes", RegistryValueKind.String);
+            SetIfMissing(j4, "ImplicitCommitSync", "no", RegistryValueKind.String);
         }
 
-        using var da = hkcu32.CreateSubKey(@"Software\Microsoft\DataAccess");
-        SetIfMissing(da, "Full21Install", -1, RegistryValueKind.DWord);
-        SetIfMissing(da, "Version", "6.3.9600.16384", RegistryValueKind.String);
-        SetIfMissing(da, "FullInstallVer", "6.3.9600.16384", RegistryValueKind.String);
-    }
-
-    private static void SeedJetEngineSettingsIfMissing(RegistryKey hkcu32)
-    {
-        using var machineJet = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Jet\4.0\Engines");
-        if (machineJet?.GetValue("SandBoxMode") is not null)
+        private static void SetIfMissing(RegistryKey? key, string? name, object value, RegistryValueKind kind)
         {
-            return;
+            if (key is not null && key.GetValue(name) is null)
+            {
+                key.SetValue(name, value, kind);
+            }
         }
-
-        using var eng = hkcu32.CreateSubKey(@"Software\Microsoft\Jet\4.0\Engines");
-        SetIfMissing(eng, "SandBoxMode", 2, RegistryValueKind.DWord);
-        SetIfMissing(eng, "SystemDB", "system.mdb", RegistryValueKind.String);
-        using var j4 = hkcu32.CreateSubKey(@"Software\Microsoft\Jet\4.0\Engines\Jet 4.0");
-        SetIfMissing(j4, "PageTimeout", 5000, RegistryValueKind.DWord);
-        SetIfMissing(j4, "LockRetry", 20, RegistryValueKind.DWord);
-        SetIfMissing(j4, "MaxBufferSize", 0, RegistryValueKind.DWord);
-        SetIfMissing(j4, "Threads", 3, RegistryValueKind.DWord);
-        SetIfMissing(j4, "UserCommitSync", "yes", RegistryValueKind.String);
-        SetIfMissing(j4, "ImplicitCommitSync", "no", RegistryValueKind.String);
-    }
-
-    private static void SetIfMissing(RegistryKey? key, string? name, object value, RegistryValueKind kind)
-    {
-        if (key is not null && key.GetValue(name) is null)
-        {
-            key.SetValue(name, value, kind);
-        }
-    }
 
 #pragma warning disable SCS0018, SEC0116 // Fixed Jet 4.0 provider DLL filenames inside validated shared COM directory.
-    private static void SeedJetOleDbProviderMetadataIfMissing(
-        RegistryKey hkcu32,
-        string sharedComDirectory)
-    {
-        const string jetProviderClsid = "{DEE35070-506B-11CF-B1AA-00AA00B8DE95}";
-        const string jetErrorClsid = "{DEE35071-506B-11CF-B1AA-00AA00B8DE95}";
-
-        using var existingRoot = Registry.ClassesRoot.OpenSubKey($@"CLSID\{jetProviderClsid}\InprocServer32");
-        if (existingRoot?.GetValue(name: null) is string { Length: > 0 })
+        private static void SeedJetOleDbProviderMetadataIfMissing(
+            RegistryKey hkcu32,
+            RegistryKey hkcr,
+            string sharedComDirectory)
         {
-            return;
+            const string jetProviderClsid = "{DEE35070-506B-11CF-B1AA-00AA00B8DE95}";
+            const string jetErrorClsid = "{DEE35071-506B-11CF-B1AA-00AA00B8DE95}";
+
+            using var existingRoot = hkcr.OpenSubKey($@"CLSID\{jetProviderClsid}\InprocServer32");
+            if (existingRoot?.GetValue(name: null) is string { Length: > 0 })
+            {
+                return;
+            }
+
+            var fullJetDll = Path.GetFullPath(Path.Combine(sharedComDirectory, "msjetoledb40.dll"));
+            if (!File.Exists(fullJetDll))
+            {
+                throw new FileNotFoundException("The private Jet 4.0 provider was not found.", fullJetDll);
+            }
+
+            using var ck = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}");
+            SetIfMissing(ck, name: null, "Microsoft.Jet.OLEDB", RegistryValueKind.String);
+            SetIfMissing(ck, "OLEDB_SERVICES", unchecked((int)0xfffffffe), RegistryValueKind.DWord);
+
+            using var op = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}\OLE DB Provider");
+            SetIfMissing(op, name: null, "Microsoft Jet 4.0 OLE DB Provider", RegistryValueKind.String);
+
+            using var ext = hkcu32.CreateSubKey(
+                $@"Software\Classes\CLSID\{jetProviderClsid}\ExtendedErrors\{jetErrorClsid}");
+            SetIfMissing(ext, name: null, "Microsoft Jet 4.0 OLE DB Provider Error Lookup", RegistryValueKind.String);
+
+            using var ips = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}\InprocServer32");
+            SetIfMissing(ips, "ThreadingModel", "Both", RegistryValueKind.String);
+            SetIfMissing(ips, name: null, fullJetDll, RegistryValueKind.String);
         }
-
-        var fullJetDll = Path.GetFullPath(Path.Combine(sharedComDirectory, "msjetoledb40.dll"));
-        if (!File.Exists(fullJetDll))
-        {
-            throw new FileNotFoundException("The private Jet 4.0 provider was not found.", fullJetDll);
-        }
-
-        using var ck = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}");
-        SetIfMissing(ck, name: null, "Microsoft.Jet.OLEDB", RegistryValueKind.String);
-        SetIfMissing(ck, "OLEDB_SERVICES", unchecked((int)0xfffffffe), RegistryValueKind.DWord);
-
-        using var op = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}\OLE DB Provider");
-        SetIfMissing(op, name: null, "Microsoft Jet 4.0 OLE DB Provider", RegistryValueKind.String);
-
-        using var ext = hkcu32.CreateSubKey(
-            $@"Software\Classes\CLSID\{jetProviderClsid}\ExtendedErrors\{jetErrorClsid}");
-        SetIfMissing(ext, name: null, "Microsoft Jet 4.0 OLE DB Provider Error Lookup", RegistryValueKind.String);
-
-        using var ips = hkcu32.CreateSubKey($@"Software\Classes\CLSID\{jetProviderClsid}\InprocServer32");
-        SetIfMissing(ips, "ThreadingModel", "Both", RegistryValueKind.String);
-        SetIfMissing(ips, name: null, fullJetDll, RegistryValueKind.String);
-    }
 #pragma warning restore SCS0018, SEC0116
+    }
 }
