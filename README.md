@@ -2,6 +2,14 @@
 
 > Registration-free COM interop for .NET. Skip `regsvr32`, skip the registry, skip the drama.
 
+**New in 5.1:** Use `ScopedComInstance<T>` on the owning STA when multiple calls
+need either a fresh instance or a retained instance. Dispose each `Acquire()` lease
+before disposing its owner. For x86 Nano Server applications explicitly using
+private legacy data access components, `NanoServerDataAccessCompatibility` can seed
+the compatibility metadata. Normal COM activation does not call it.
+See [ADR 0039](docs/adr/0039-scoped-com-instances.md) and
+[ADR 0040](docs/adr/0040-nano-server-data-access-compatibility.md).
+
 [![NuGet](https://img.shields.io/nuget/v/AdaskoTheBeAsT.Interop.COM.svg?logo=nuget)](https://www.nuget.org/packages/AdaskoTheBeAsT.Interop.COM/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AdaskoTheBeAsT.Interop.COM.svg?logo=nuget)](https://www.nuget.org/packages/AdaskoTheBeAsT.Interop.COM/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/AdaskoTheBeAsT/AdaskoTheBeAsT.Interop.COM/blob/main/LICENSE)

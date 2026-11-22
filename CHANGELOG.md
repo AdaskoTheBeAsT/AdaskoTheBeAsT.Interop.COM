@@ -6,6 +6,10 @@ Dates shown for historical releases refer to repository tags, not NuGet publicat
 
 See the [migration guide](MIGRATION.md) for required upgrade steps and the [README](README.md) for current usage.
 
+## [5.1.0]
+
+Adds thread-affine COM instance leases and opt-in x86 Nano Server legacy data access setup.
+
 ## [5.0.0]
 
 ### Breaking changes
