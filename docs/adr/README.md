@@ -46,6 +46,8 @@ An ADR captures a single architecturally significant decision, the context in wh
 | [0036](0036-coreclr-sta-prewarming-and-per-module-couninitialize-guard.md) | CoreCLR STA `OleMainThreadWndClass` Pre-Warming and Opt-In Per-Module Unbalanced `CoUninitialize` IAT Guard | Accepted | v5.0.0 |
 | [0037](0037-thread-affine-automation-locale-scope.md) | Thread-Affine Win32 Automation `LCID` and Managed Culture Scope (`ComAutomationLocaleScope`) | Accepted | v5.0.0 |
 | [0038](0038-rcw-free-inproc-server-probing-and-worker-manifest-rewriting.md) | RCW-Free In-Proc Server Provenance Probing and Validated Worker SxS Manifest Rewriting | Accepted | v5.0.0 |
+| [0039](0039-scoped-com-instances.md) | Shared COM Instance Lifetimes | Accepted | v5.1.0 |
+| [0040](0040-nano-server-data-access-compatibility.md) | Opt-In Nano Server Data Access Setup | Accepted | v5.1.0 |
 
 ## Conventions
 
